@@ -1,0 +1,33 @@
+postgresql:
+  host: ...
+  port: 5432
+  dbnames: ...
+  user: ...
+  password: ...
+store:
+  type: s3
+  name: ...
+  path:
+  date-prefix: ...
+  reduced-redundancy: false
+  object-acl: private
+process:
+  query-config: /usr/src/vector-datasource/queries.yaml
+  template-path: /usr/src/vector-datasource/queries
+  reload-templates: false
+  formats: [json, topojson, mvt]
+  yaml:
+    # TODO should be using the callable config here instead
+    type: parse
+    parse:
+      path: /usr/src/vector-datasource/yaml
+logging: {config: /etc/tilequeue/logging.conf}
+metatile:
+  size: 4
+  start-zoom: 0
+rawr:
+  group-zoom: 10
+use-rawr-tiles: false
+batch:
+  queue-zoom: 7
+  check-metatile-exists: true

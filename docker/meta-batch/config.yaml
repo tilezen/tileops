@@ -1,0 +1,72 @@
+queue:
+  - type: mem
+    name: none
+queue-mapping:
+  type: single
+  name: none
+message-marshall: {type: single}
+message-tracker: {type: single}
+store:
+  type: s3
+  name: ...
+  path:
+  date-prefix: ...
+  reduced-redundancy: false
+  object-acl: private
+process:
+  query-config: /usr/src/vector-datasource/queries.yaml
+  template-path: /usr/src/vector-datasource/queries
+  reload-templates: false
+  formats: [json, topojson, mvt]
+  yaml:
+    # TODO should be using the callable config here instead
+    type: parse
+    parse:
+      path: /usr/src/vector-datasource/yaml
+logging: {config: /etc/tilequeue/logging.conf}
+metatile:
+  size: 4
+  start-zoom: 0
+rawr:
+  group-zoom: 10
+  source:
+    type: s3
+    table-sources:
+      planet_osm_line: &osm { name: osm, value: openstreetmap.org }
+      planet_osm_point: *osm
+      planet_osm_polygon: *osm
+      planet_osm_ways: *osm
+      planet_osm_rels: *osm
+      wof_neighbourhood: { name: wof, value: whosonfirst.mapzen.com }
+      water_polygons: &osmdata { name: shp, value: openstreetmapdata.com }
+      land_polygons: *osmdata
+      ne_10m_urban_areas: { name: ne, value: naturalearthdata.com }
+    s3:
+      bucket: ...
+      region: ...
+      prefix: ...
+      suffix: .zip
+  label-placement-layers:
+    point: ['earth', 'water']
+    polygon: ['buildings', 'earth', 'landuse', 'water']
+    linestring: ['earth', 'landuse', 'water']
+  indexes:
+    - type: osm
+    - type: simple
+      table: wof_neighbourhood
+      layer: places
+    - type: simple
+      table: water_polygons
+      layer: water
+    - type: simple
+      table: land_polygons
+      layer: earth
+    - type: simple
+      table: ne_10m_urban_areas
+      layer: landuse
+      end_zoom: 10
+  intersect: {type: none}
+use-rawr-tiles: true
+batch:
+  queue-zoom: 7
+  check-metatile-exists: true

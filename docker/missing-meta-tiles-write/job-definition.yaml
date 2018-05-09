@@ -1,0 +1,27 @@
+job-definitions:
+
+  # NOTE! You'll need to replace ACCOUNT_ID below, or use the job definitions set
+  # up by the automatic script. This file is only needed if you want to run the
+  # missing meta lookup manually.
+  - name: missing-meta-tiles-write
+    job-role-arn: arn:aws:iam::ACCOUNT_ID:role/raw-tiles-manual-raw-batch-job-role
+    image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/tilezen/missing-meta-tiles-write
+    command:
+      - /tz-missing-meta-tiles-write
+      - -dest-bucket
+      - Ref::dest_bucket
+      - -dest-date-prefix
+      - Ref::dest_date_prefix
+      - -src-bucket
+      - Ref::src_bucket
+      - -src-date-prefix
+      - Ref::src_date_prefix
+      - -hex-prefix
+      - Ref::hex_prefix
+    environment:
+    memory: 1024
+    vcpus: 1
+    retry-attempts: 3
+
+# batch aws region
+region: us-east-1
