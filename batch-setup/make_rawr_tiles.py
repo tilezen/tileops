@@ -139,7 +139,7 @@ def any_jobs_with_status(batch, job_queue, status):
     return len(response['jobSummaryList']) > 0
 
 
-def wait_for_jobs_to_finish(job_queue, wait_time=60):
+def wait_for_jobs_to_finish(job_queue, wait_time=300):
     """
     Wait until there are no jobs in the queue with a non-finished status.
 
@@ -160,7 +160,7 @@ def wait_for_jobs_to_finish(job_queue, wait_time=60):
                        'RUNNING'):
             if any_jobs_with_status(batch, job_queue, status):
                 jobs_remaining = True
-                print("Still have jobs left in queue.")
+                print("[%s] Still have jobs left in queue." % (time.ctime()))
                 time.sleep(wait_time)
                 break
     print("All jobs finished (either SUCCEEDED or FAILED)")
