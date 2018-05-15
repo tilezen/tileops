@@ -11,7 +11,7 @@ import shutil
 import tempfile
 
 
-MissingTiles = namedtuple('MissingTiles', 'count low_zoom_file high_zoom_file')
+MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
 
 
 class MissingTileFinder(object):
@@ -117,8 +117,7 @@ class MissingTileFinder(object):
                    '-tiles-file', missing_meta_file,
                    '-zoom-max', '7')
 
-            count = wc_line(missing_low_file) + wc_line(missing_high_file)
-            yield MissingTiles(count, missing_low_file, missing_high_file)
+            yield MissingTiles(missing_low_file, missing_high_file)
 
         finally:
             shutil.rmtree(tmpdir)
@@ -182,16 +181,21 @@ if __name__ == '__main__':
 
     for retry_number in xrange(0, args.retries):
         with tile_finder.missing_tiles() as missing:
-            if missing.count == 0:
+            low_count = wc_line(missing.low_zoom_file)
+            high_count = wc_line(missing.high_zoom_file)
+
+            if low_count == 0 and high_count == 0:
                 print("All done!")
                 break
 
             # enqueue jobs for missing tiles
-            print("Enqueueing low zoom tiles")
-            enqueue_tiles(args.low_zoom_config, missing.low_zoom_file)
+            if low_count > 0:
+                print("Enqueueing low zoom tiles")
+                enqueue_tiles(args.low_zoom_config, missing.low_zoom_file)
 
-            print("Enqueueing high zoom tiles")
-            enqueue_tiles(args.high_zoom_config, missing.high_zoom_file)
+            if high_count > 0:
+                print("Enqueueing high zoom tiles")
+                enqueue_tiles(args.high_zoom_config, missing.high_zoom_file)
 
     else:
         with tile_finder.missing_tiles() as missing:

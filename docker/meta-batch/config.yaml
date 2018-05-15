@@ -37,7 +37,7 @@ rawr:
       planet_osm_polygon: *osm
       planet_osm_ways: *osm
       planet_osm_rels: *osm
-      wof_neighbourhood: { name: wof, value: whosonfirst.mapzen.com }
+      wof_neighbourhood: { name: wof, value: whosonfirst.org }
       water_polygons: &osmdata { name: shp, value: openstreetmapdata.com }
       land_polygons: *osmdata
       ne_10m_urban_areas: { name: ne, value: naturalearthdata.com }
