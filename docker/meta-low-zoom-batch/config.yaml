@@ -23,8 +23,9 @@ process:
       path: /usr/src/vector-datasource/yaml
 logging: {config: /etc/tilequeue/logging.conf}
 metatile:
-  size: 4
+  size: 8
   start-zoom: 0
+  tile-sizes: [512]
 rawr:
   group-zoom: 10
 use-rawr-tiles: false
