@@ -120,5 +120,5 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
 # functionality already in various tools we use. this seemed a good place to
 # have a "breakpoint" where we'd "lock in" and not re-run the previous steps.
 print("RUN THIS NEXT>> python make_rawr_tiles.py "
-      "--config rawr-enqueue-batch.config.yaml %r %r"
+      "--config enqueue-rawr-batch.config.yaml %r %r"
       % (buckets.rawr, date_prefix))
