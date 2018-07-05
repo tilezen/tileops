@@ -11,6 +11,7 @@ FLAT_NODES_BUCKET='%(flat_nodes_bucket)s'
 FLAT_NODES_KEY='%(flat_nodes_key)s'
 export AWS_DEFAULT_REGION='%(aws_region)s'
 export OSM2PGSQL='/usr/bin/osm2pgsql'
+VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 
 # we don't want the STATUS file moving around while we change working directories, especially if
 # we have to report a failure.
@@ -96,6 +97,7 @@ echo "checking planet file MD5" > $STATUS
 if [[ ! -d vector-datasource ]]; then
     echo "checking out vector-datasource" > $STATUS
     git clone https://github.com/tilezen/vector-datasource.git
+    (cd vector-datasource && git checkout "${VECTOR_DATASOURCE_VERSION}")
 fi
 
 # set up database - it needs extensions adding prior to osm2pgsql run
