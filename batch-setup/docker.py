@@ -33,13 +33,16 @@ def build_image(path, registry_url):
 
 
 def build_and_upload_images(repo_uris):
-    # TODO: this is pretty horrible. perhaps we can specify a git URL + tag to
-    # download and use?
-    for repo in ('vector-datasource', 'tilequeue', 'raw_tiles'):
-        if not os.path.isdir("../../%s" % repo):
-            raise RuntimeError("You must check out the %s repository "
-                               "alongside tzops to build Docker images."
-                               % repo)
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    # change directory to be the same as the script, so that the relative paths work.
+    with change_dir(script_dir):
+        # TODO: this is pretty horrible. perhaps we can specify a git URL + tag to
+        # download and use?
+        for repo in ('vector-datasource', 'tilequeue', 'raw_tiles'):
+            if not os.path.isdir("../../%s" % repo):
+                raise RuntimeError("You must check out the %s repository "
+                                   "alongside tzops to build Docker images."
+                                   % repo)
 
-    for path, registry_url in repo_uris.items():
-        build_image(path, registry_url)
+        for path, registry_url in repo_uris.items():
+            build_image(path, registry_url)
