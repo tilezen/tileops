@@ -1,7 +1,7 @@
 logging: {config: /etc/tilequeue/logging.conf}
 rawr:
   group-zoom: 10
-  sources: [osm, wof, water_polygons, land_polygons, ne_10m_urban_areas]
+  sources: [osm, wof, water_polygons, land_polygons, ne_10m_urban_areas, admin_areas, buffered_land]
   postgresql:
     host: ...
     port: 5432
@@ -20,6 +20,8 @@ rawr:
       water_polygons: &osmdata { name: shp, value: openstreetmapdata.com }
       land_polygons: *osmdata
       ne_10m_urban_areas: { name: ne, value: naturalearthdata.com }
+      admin_areas: *osm
+      buffered_land: { name: shp, value: tilezen.org }
   sink:
     type: s3
     s3:
