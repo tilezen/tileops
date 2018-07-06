@@ -417,3 +417,28 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
         shutil.rmtree(tmpdir)
 
     return definition_names
+
+
+def terminate_all_jobs(job_queue, reason):
+    batch = boto3.client('batch')
+    for status in ('SUBMITTED', 'PENDING', 'RUNNABLE', 'STARTING',
+                   'RUNNING'):
+        job_ids = []
+        response = batch.list_jobs(
+            jobQueue=job_queue,
+            jobStatus=status,
+        )
+        while response.get('jobSummaryList'):
+            for j in response['jobSummaryList']:
+                job_ids.append(j['jobId'])
+            next_token = response.get('nextToken')
+            if not next_token:
+                break
+            response = batch.list_jobs(
+                jobQueue=job_queue,
+                jobStatus=status,
+                nextToken=next_token,
+            )
+        print("Terminating %d %r jobs" % (len(job_ids), status))
+        for job_id in job_ids:
+            batch.terminate_job(jobId=job_id, reason=reason)

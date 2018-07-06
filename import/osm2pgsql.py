@@ -394,7 +394,8 @@ def shutdown_and_cleanup(ec2, import_instance_id, planet_date):
             raise
 
 
-def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region):
+def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region,
+                  vector_datasource_version='master'):
     ec2 = boto3.client('ec2')
 
     # is there already an import instance running?
@@ -471,6 +472,7 @@ def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region):
             flat_nodes_bucket=bucket,
             flat_nodes_key=flat_nodes_key(planet_date),
             aws_region=aws_region,
+            vector_datasource_version=vector_datasource_version,
         )
 
     shutdown_and_cleanup(ec2, import_instance_id, planet_date)

@@ -17,6 +17,9 @@ parser.add_argument('iam-instance-profile', help="IAM instance profile to "
                     "access to the S3 bucket for storing flat nodes.")
 parser.add_argument('database-password', help="The 'master user password' "
                     "to use when setting up the RDS database.")
+parser.add_argument('--vector-datasource-version', default='master',
+                    help='Version (git branch, ref or commit) to use when '
+                    'setting up the database.')
 
 args = parser.parse_args()
 
@@ -32,6 +35,6 @@ else:
 db = database.ensure_database(planet_date, getattr(args, 'database-password'))
 
 osm2pgsql.ensure_import(planet_date, db, getattr(args, 'iam-instance-profile'),
-                        args.bucket, args.region)
+                        args.bucket, args.region, args.vector_datasource_version)
 
 database.take_snapshot_and_shutdown(db, planet_date)
