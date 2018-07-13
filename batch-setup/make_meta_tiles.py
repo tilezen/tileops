@@ -117,6 +117,13 @@ class MissingTileFinder(object):
                    '-tiles-file', missing_meta_file,
                    '-zoom-max', '7')
 
+            with open(missing_low_file, 'w') as fh:
+                for z in xrange(0, 8):
+                    max_coord = 1 << z
+                    for x in xrange(0, max_coord):
+                        for y in xrange(0, max_coord):
+                            fh.write("%d/%d/%d\n" % (z, x, y))
+
             yield MissingTiles(missing_low_file, missing_high_file)
 
         finally:
@@ -199,5 +206,8 @@ if __name__ == '__main__':
 
     else:
         with tile_finder.missing_tiles() as missing:
+            low_count = wc_line(missing.low_zoom_file)
+            high_count = wc_line(missing.high_zoom_file)
+            total = low_count + high_count
             print("FAILED! %d tiles still missing after %d tries"
-                  % (missing.count, args.retries))
+                  % (total, args.retries))

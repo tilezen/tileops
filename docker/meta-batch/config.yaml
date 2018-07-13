@@ -17,7 +17,7 @@ process:
   query-config: /usr/src/vector-datasource/queries.yaml
   template-path: /usr/src/vector-datasource/queries
   reload-templates: false
-  formats: [json, topojson, mvt]
+  formats: [mvt]
   yaml:
     # TODO should be using the callable config here instead
     type: parse
@@ -68,6 +68,12 @@ rawr:
       table: ne_10m_urban_areas
       layer: landuse
       end_zoom: 10
+    - type: simple
+      table: admin_areas
+      layer: admin_areas
+    - type: simple
+      table: buffered_land
+      layer: boundaries
   intersect: {type: none}
 use-rawr-tiles: true
 batch:

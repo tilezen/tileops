@@ -37,6 +37,8 @@ parser.add_argument('--date-prefix', default=None, help='Date prefix to use '
                     'date.')
 parser.add_argument('--region', help='AWS region. If not provided, then the '
                     'AWS_DEFAULT_REGION environment variable must be set.')
+parser.add_argument('--meta-date-prefix', help='Optional different date '
+                    'prefix to be used for the meta and missing buckets.')
 
 args = parser.parse_args()
 planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -71,8 +73,8 @@ buckets = Buckets(args.rawr_bucket, args.meta_bucket,
 # raised if jobs fail with out-of-memory errors.
 memory = {
     'rawr-batch': 8192,
-    'meta-batch': 4096,
-    'meta-low-zoom-batch': 2048,
+    'meta-batch': 8192,  # 4096,
+    'meta-low-zoom-batch': 8192,  # 2048,
     'missing-meta-tiles-write': 1024,
 }
 # defaults for the moment. TODO: make them configurable from the command
@@ -80,7 +82,7 @@ memory = {
 # before any of our processes could take advantage of >1 cpu, and aren't
 # we using Batch to provide the concurrency we want anyway?)
 vcpus = 1
-retry_attempts = defaultdict(lambda: 1)
+retry_attempts = defaultdict(lambda: 3)
 # RAWR seems to get a lot of DockerTimeout errors - but i don't think
 # they're anything to do with us?
 retry_attempts['rawr-batch'] = 10
@@ -89,7 +91,7 @@ retry_attempts['rawr-batch'] = 10
 job_def_names = create_job_definitions(
     planet_date, region, repo_uris, database_ids, buckets, args.db_password,
     memory=memory, vcpus=vcpus, retry_attempts=retry_attempts,
-    date_prefix=date_prefix)
+    date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix)
 
 # create config file for tilequeue
 for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',

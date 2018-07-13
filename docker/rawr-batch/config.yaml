@@ -48,5 +48,11 @@ rawr:
       table: ne_10m_urban_areas
       layer: landuse
       end_zoom: 10
+    - type: simple
+      table: admin_areas
+      layer: admin_areas
+    - type: simple
+      table: buffered_land
+      layer: boundaries
   intersect: {type: none}
 use-rawr-tiles: true

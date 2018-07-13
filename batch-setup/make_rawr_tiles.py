@@ -184,8 +184,8 @@ def make_rawr_tiles(config_file, bucket, date_prefix, retry_attempts,
         job_queue = config['batch']['job-queue']
 
     for attempt in range(retry_attempts):
-        with missing_tiles(bucket, date_prefix, tile_zoom,
-                           job_zoom) as missing_file:
+        with missing_jobs(bucket, date_prefix, tile_zoom,
+                          job_zoom) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
                 print("Successfully generated all the RAWR tiles after "

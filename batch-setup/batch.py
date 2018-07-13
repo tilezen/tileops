@@ -45,7 +45,7 @@ def db_lookup(databases):
 
 
 def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
-                  region, date_prefix):
+                  region, date_prefixes):
     if name == 'rawr-batch':
         env = {
             'TILEQUEUE__RAWR__POSTGRESQL__HOST': db_hosts,
@@ -54,16 +54,16 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__RAWR__POSTGRESQL__PASSWORD': db_password,
             'TILEQUEUE__RAWR__SINK__S3__BUCKET': buckets.rawr,
             'TILEQUEUE__RAWR__SINK__S3__REGION': region,
-            'TILEQUEUE__RAWR__SINK__S3__PREFIX': date_prefix,
+            'TILEQUEUE__RAWR__SINK__S3__PREFIX': date_prefixes.rawr,
         }
 
     elif name == 'meta-batch':
         env = {
             'TILEQUEUE__STORE__NAME': buckets.meta,
-            'TILEQUEUE__STORE__DATE-PREFIX': date_prefix,
+            'TILEQUEUE__STORE__DATE-PREFIX': date_prefixes.meta,
             'TILEQUEUE__RAWR__SOURCE__S3__BUCKET': buckets.rawr,
             'TILEQUEUE__RAWR__SOURCE__S3__REGION': region,
-            'TILEQUEUE__RAWR__SOURCE__S3__PREFIX': date_prefix,
+            'TILEQUEUE__RAWR__SOURCE__S3__PREFIX': date_prefixes.rawr,
         }
 
     elif name == 'meta-low-zoom-batch':
@@ -73,7 +73,7 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__POSTGRESQL__USER': db_user,
             'TILEQUEUE__POSTGRESQL__PASSWORD': db_password,
             'TILEQUEUE__STORE__NAME': buckets.meta,
-            'TILEQUEUE__STORE__DATE-PREFIX': date_prefix,
+            'TILEQUEUE__STORE__DATE-PREFIX': date_prefixes.meta,
         }
 
     elif name == 'missing-meta-tiles-write':
@@ -293,7 +293,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefix):
 
 def make_job_definitions(
         iam, planet_date, region, repo_urls, databases, buckets,
-        db_password, memory, vcpus, retry_attempts, date_prefix):
+        db_password, memory, vcpus, retry_attempts, date_prefixes):
 
     db_hosts, db_name, db_user = db_lookup(databases)
 
@@ -301,7 +301,7 @@ def make_job_definitions(
     definition_names = {}
     for name, image in repo_urls.items():
         job_role_arn = ensure_job_role_arn(
-            iam, planet_date, name, buckets, date_prefix)
+            iam, planet_date, name, buckets, date_prefixes.rawr)
         memory_value = memory[name] if isinstance(memory, dict) else memory
         vcpus_value = vcpus[name] if isinstance(vcpus, dict) else vcpus
         retry_value = retry_attempts[name] \
@@ -315,7 +315,7 @@ def make_job_definitions(
             'command': cmd_for_image(name, region),
             'environment': env_for_image(
                 name, db_hosts, db_name, db_user, db_password, buckets, region,
-                date_prefix),
+                date_prefixes),
             'memory': memory_value,
             'vcpus': vcpus_value,
             'retry-attempts': retry_value,
@@ -381,7 +381,8 @@ def run_go(cmd, *args, **kwargs):
 
 def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
                            db_password, memory=1024, vcpus=1,
-                           retry_attempts=5, date_prefix=None):
+                           retry_attempts=5, date_prefix=None,
+                           meta_date_prefix=None):
 
     """
     Set up job definitions for all of the repos in repo_urls.
@@ -393,6 +394,9 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
     If date_prefix is left as None (the default) it will be generated from
     planet_date automatically.
 
+    If meta_date_prefix is specified, a different date prefix will be used in
+    the metatile and missing buckets.
+
     Returns a mapping from the keys of repo_urls to the job definition names.
     """
 
@@ -401,9 +405,14 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
     if date_prefix is None:
         date_prefix = planet_date.strftime('%Y%m%d')
 
+    if meta_date_prefix is None:
+        meta_date_prefix = date_prefix
+
+    date_prefixes = Buckets(date_prefix, meta_date_prefix, meta_date_prefix)
+
     job_definitions, definition_names = make_job_definitions(
         iam, planet_date, region, repo_urls, databases, buckets,
-        db_password, memory, vcpus, retry_attempts, date_prefix)
+        db_password, memory, vcpus, retry_attempts, date_prefixes)
 
     tmpdir = tempfile.mkdtemp()
     try:

@@ -15,7 +15,7 @@ process:
   query-config: /usr/src/vector-datasource/queries.yaml
   template-path: /usr/src/vector-datasource/queries
   reload-templates: false
-  formats: [json, topojson, mvt]
+  formats: [mvt]
   yaml:
     # TODO should be using the callable config here instead
     type: parse
