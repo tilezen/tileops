@@ -197,6 +197,10 @@ if __name__ == '__main__':
                 print("All done!")
                 break
 
+            # On the first run, don't check if the metatile already exists,
+            # since it most likely won't. On subsequent runs when we're trying
+            # to generate the remaining tiles, we want to check first to avoid
+            # repeat processing.
             check_metatile_exists = retry_number > 0
 
             # enqueue jobs for missing tiles
