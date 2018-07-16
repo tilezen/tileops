@@ -7,6 +7,7 @@ from make_rawr_tiles import wc_line
 from contextlib import contextmanager
 from collections import namedtuple
 import boto3
+import os
 import shutil
 import tempfile
 
@@ -130,12 +131,14 @@ class MissingTileFinder(object):
             shutil.rmtree(tmpdir)
 
 
-def enqueue_tiles(config_file, tile_list_file):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
 
     args = BatchEnqueueArgs(config_file, None, tile_list_file, None)
+    os.environ['TILEQUEUE__BATCH__CHECK-METATILE-EXISTS'] = (
+        str(check_metatile_exists).lower())
     with open(args.config) as fh:
         cfg = make_config_from_argparse(fh)
     tilequeue_batch_enqueue(cfg, args)
@@ -143,7 +146,6 @@ def enqueue_tiles(config_file, tile_list_file):
 
 if __name__ == '__main__':
     import argparse
-    import os
 
     parser = argparse.ArgumentParser("Render missing meta tiles")
     parser.add_argument('rawr_bucket', help="Bucket with RAWR tiles in")
@@ -195,14 +197,18 @@ if __name__ == '__main__':
                 print("All done!")
                 break
 
+            check_metatile_exists = retry_number > 0
+
             # enqueue jobs for missing tiles
             if low_count > 0:
                 print("Enqueueing low zoom tiles")
-                enqueue_tiles(args.low_zoom_config, missing.low_zoom_file)
+                enqueue_tiles(args.low_zoom_config, missing.low_zoom_file,
+                              check_metatile_exists)
 
             if high_count > 0:
                 print("Enqueueing high zoom tiles")
-                enqueue_tiles(args.high_zoom_config, missing.high_zoom_file)
+                enqueue_tiles(args.high_zoom_config, missing.high_zoom_file,
+                              check_metatile_exists)
 
     else:
         with tile_finder.missing_tiles() as missing:
