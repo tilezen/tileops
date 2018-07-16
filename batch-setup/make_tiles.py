@@ -39,6 +39,9 @@ parser.add_argument('--region', help='AWS region. If not provided, then the '
                     'AWS_DEFAULT_REGION environment variable must be set.')
 parser.add_argument('--meta-date-prefix', help='Optional different date '
                     'prefix to be used for the meta and missing buckets.')
+parser.add_argument('--check-metatile-exists', default=False,
+                    action='store_true', help='Whether to check if the '
+                    'metatile exists first before processing the batch job.')
 
 args = parser.parse_args()
 planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -91,7 +94,8 @@ retry_attempts['rawr-batch'] = 10
 job_def_names = create_job_definitions(
     planet_date, region, repo_uris, database_ids, buckets, args.db_password,
     memory=memory, vcpus=vcpus, retry_attempts=retry_attempts,
-    date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix)
+    date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix,
+    check_metatile_exists=args.check_metatile_exists)
 
 # create config file for tilequeue
 for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',

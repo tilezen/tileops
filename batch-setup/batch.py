@@ -45,7 +45,7 @@ def db_lookup(databases):
 
 
 def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
-                  region, date_prefixes):
+                  region, date_prefixes, check_metatile_exists):
     if name == 'rawr-batch':
         env = {
             'TILEQUEUE__RAWR__POSTGRESQL__HOST': db_hosts,
@@ -64,6 +64,7 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__RAWR__SOURCE__S3__BUCKET': buckets.rawr,
             'TILEQUEUE__RAWR__SOURCE__S3__REGION': region,
             'TILEQUEUE__RAWR__SOURCE__S3__PREFIX': date_prefixes.rawr,
+            'TILEQUEUE__BATCH__CHECK-METATILE-EXISTS': check_metatile_exists,
         }
 
     elif name == 'meta-low-zoom-batch':
@@ -74,6 +75,7 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__POSTGRESQL__PASSWORD': db_password,
             'TILEQUEUE__STORE__NAME': buckets.meta,
             'TILEQUEUE__STORE__DATE-PREFIX': date_prefixes.meta,
+            'TILEQUEUE__BATCH__CHECK-METATILE-EXISTS': check_metatile_exists,
         }
 
     elif name == 'missing-meta-tiles-write':
@@ -293,7 +295,8 @@ def create_role(iam, image_name, role_name, buckets, date_prefix):
 
 def make_job_definitions(
         iam, planet_date, region, repo_urls, databases, buckets,
-        db_password, memory, vcpus, retry_attempts, date_prefixes):
+        db_password, memory, vcpus, retry_attempts, date_prefixes,
+        check_metatile_exists):
 
     db_hosts, db_name, db_user = db_lookup(databases)
 
@@ -315,7 +318,7 @@ def make_job_definitions(
             'command': cmd_for_image(name, region),
             'environment': env_for_image(
                 name, db_hosts, db_name, db_user, db_password, buckets, region,
-                date_prefixes),
+                date_prefixes, check_metatile_exists),
             'memory': memory_value,
             'vcpus': vcpus_value,
             'retry-attempts': retry_value,
@@ -382,7 +385,7 @@ def run_go(cmd, *args, **kwargs):
 def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
                            db_password, memory=1024, vcpus=1,
                            retry_attempts=5, date_prefix=None,
-                           meta_date_prefix=None):
+                           meta_date_prefix=None, check_metatile_exists=False):
 
     """
     Set up job definitions for all of the repos in repo_urls.
@@ -412,7 +415,8 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
 
     job_definitions, definition_names = make_job_definitions(
         iam, planet_date, region, repo_urls, databases, buckets,
-        db_password, memory, vcpus, retry_attempts, date_prefixes)
+        db_password, memory, vcpus, retry_attempts, date_prefixes,
+        check_metatile_exists)
 
     tmpdir = tempfile.mkdtemp()
     try:
