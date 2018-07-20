@@ -115,6 +115,12 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
             'job-definition': job_def_names[name],
         }
     }
+    # When enqueueing rawr and metatiles for generation, the job-type needs to
+    # be set appropriately. This dictates the size for the batch array option.
+    if name in ('rawr-batch', 'meta-batch'):
+        config['batch']['job-type'] = 'high'
+    elif name == 'meta-low-zoom-batch':
+        config['batch']['job-type'] = 'low'
     config_file = 'enqueue-%s.config.yaml' % (name)
     with open(config_file, 'w') as f:
         f.write(yaml.safe_dump(config))
