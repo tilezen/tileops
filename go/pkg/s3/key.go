@@ -58,16 +58,16 @@ func HashString(s string) string {
 
 // MetaTileHashPathForCoord returns the hashed s3 path for metatiles.
 func MetaTileHashPathForCoord(datePrefix string, coord tzc.Coord) string {
-	pathToHash := fmt.Sprintf("/all/%d/%d/%d.zip", coord.Z, coord.X, coord.Y)
+	pathToHash := fmt.Sprintf("%d/%d/%d.zip", coord.Z, coord.X, coord.Y)
 	hash := HashString(pathToHash)
-	result := fmt.Sprintf("%s/%s%s", datePrefix, hash, pathToHash)
+	result := fmt.Sprintf("%s/%s/%s", hash, datePrefix, pathToHash)
 	return result
 }
 
 // RawrTileHashPathForCoord returns the hashed s3 path for rawr tiles.
 func RawrTileHashPathForCoord(datePrefix string, coord tzc.Coord) string {
-	pathToHash := fmt.Sprintf("/%d/%d/%d.zip", coord.Z, coord.X, coord.Y)
+	pathToHash := fmt.Sprintf("%d/%d/%d.zip", coord.Z, coord.X, coord.Y)
 	hash := HashString(pathToHash)
-	result := fmt.Sprintf("%s/%s%s", datePrefix, hash, pathToHash)
+	result := fmt.Sprintf("%s/%s/%s", hash, datePrefix, pathToHash)
 	return result
 }
