@@ -172,7 +172,7 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
                 instanceTypes=["optimal"],
                 instanceRole=instanceRoleArn,
                 tags={
-                    'Name': 'Raw Tiles Rendering'
+                    'Name': 'Tiles Rendering'
                 },
                 bidPercentage=60,
                 spotIamFleetRole=spotIamFleetRoleArn,
