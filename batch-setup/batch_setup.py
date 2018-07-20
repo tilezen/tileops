@@ -167,7 +167,7 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
             computeResources=dict(
                 type='SPOT',
                 minvCpus=0,
-                maxvCpus=1024,
+                maxvCpus=32768,
                 desiredvCpus=0,
                 instanceTypes=["optimal"],
                 instanceRole=instanceRoleArn,
