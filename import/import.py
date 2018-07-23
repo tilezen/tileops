@@ -1,8 +1,9 @@
 import argparse
-import osm
 import database
-import osm2pgsql
 import datetime
+import osm
+import osm2pgsql
+import requests
 
 
 parser = argparse.ArgumentParser(
@@ -20,6 +21,8 @@ parser.add_argument('database-password', help="The 'master user password' "
 parser.add_argument('--vector-datasource-version', default='master',
                     help='Version (git branch, ref or commit) to use when '
                     'setting up the database.')
+parser.add_argument('--find-ip-address',
+                    help='how to find ip address, <ipify|meta>')
 
 args = parser.parse_args()
 
@@ -34,7 +37,18 @@ else:
 # it works ok with optional arguments, though.
 db = database.ensure_database(planet_date, getattr(args, 'database-password'))
 
-osm2pgsql.ensure_import(planet_date, db, getattr(args, 'iam-instance-profile'),
-                        args.bucket, args.region, args.vector_datasource_version)
+ip_addr = None
+if args.find_ip_address == 'ipify':
+    ip_addr = requests.get('https://api.ipify.org').text
+elif args.find_ip_address == 'meta':
+    ip_addr = requests.get(
+        'http://169.254.169.254/latest/meta-data/public-ipv4').text
+else:
+    assert 0, '--find-ip-address <ipify|meta>'
+
+
+osm2pgsql.ensure_import(
+    planet_date, db, getattr(args, 'iam-instance-profile'), args.bucket,
+    args.region, ip_addr, args.vector_datasource_version)
 
 database.take_snapshot_and_shutdown(db, planet_date)

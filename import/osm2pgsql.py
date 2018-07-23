@@ -146,13 +146,10 @@ def create_security_group_allowing(ec2, sg_name, ip):
     return sg_id
 
 
-def create_security_group_allowing_this_ip(ec2):
+def create_security_group_allowing_this_ip(ec2, ip_addr):
     from ipaddress import ip_address
-    import requests
 
-    # TODO: if this is happening from inside EC2, we'll need a different way
-    # of setting up access.
-    ip = ip_address(requests.get('https://api.ipify.org').text)
+    ip = ip_address(ip_addr)
     sg_name = 'osm2pgsql-import-allow-' + str(ip).replace('.', '-')
 
     # try to find existing SG called this
@@ -166,8 +163,9 @@ def create_security_group_allowing_this_ip(ec2):
     return sg_id
 
 
-def start_osm2pgsql_instance(ec2, planet_date, key_pair_name,
-                             security_group_id, iam_instance_profile):
+def start_osm2pgsql_instance(
+        ec2, planet_date, key_pair_name, security_group_id,
+        iam_instance_profile, ip_addr):
     # find latest official ubuntu server image
     response = ec2.describe_images(
         Filters=[
@@ -182,7 +180,7 @@ def start_osm2pgsql_instance(ec2, planet_date, key_pair_name,
 
     ami_id = latest_image['ImageId']
 
-    allow_this_ip = create_security_group_allowing_this_ip(ec2)
+    allow_this_ip = create_security_group_allowing_this_ip(ec2, ip_addr)
 
     date_tag = planet_date.strftime('%Y-%m-%d')
     response = ec2.run_instances(
@@ -366,7 +364,7 @@ class Instance(object):
                 time.sleep(15)
 
 
-def shutdown_and_cleanup(ec2, import_instance_id, planet_date):
+def shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr):
     import os
 
     # shut down the instance and delete the key-pair
@@ -383,7 +381,7 @@ def shutdown_and_cleanup(ec2, import_instance_id, planet_date):
 
     # note: this won't actually create - this security group is already in use
     # on the instance.
-    sg_id = create_security_group_allowing_this_ip(ec2)
+    sg_id = create_security_group_allowing_this_ip(ec2, ip_addr)
     try:
         ec2.delete_security_group(GroupId=sg_id)
 
@@ -394,8 +392,9 @@ def shutdown_and_cleanup(ec2, import_instance_id, planet_date):
             raise
 
 
-def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region,
-                  vector_datasource_version='master'):
+def ensure_import(
+        planet_date, db, iam_instance_profile, bucket, aws_region,
+        ip_addr, vector_datasource_version='master'):
     ec2 = boto3.client('ec2')
 
     # is there already an import instance running?
@@ -431,7 +430,7 @@ def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region,
 
         import_instance_id = start_osm2pgsql_instance(
             ec2, planet_date, key_pair_name, db.security_group_id,
-            iam_instance_profile)
+            iam_instance_profile, ip_addr)
 
         # instance started!
         print "Instance started (id=%r)." % import_instance_id
@@ -475,4 +474,4 @@ def ensure_import(planet_date, db, iam_instance_profile, bucket, aws_region,
             vector_datasource_version=vector_datasource_version,
         )
 
-    shutdown_and_cleanup(ec2, import_instance_id, planet_date)
+    shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr)
