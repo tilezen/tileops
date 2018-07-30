@@ -1,0 +1,35 @@
+#!/bin/bash
+set +e
+yum update -y
+yum install -y git libgeos-devel python-devel postgresql96-devel gcc gcc-c++
+for gocmd in batch-create-job-definition batch-submit-missing-meta-tiles missing-meta-tiles-read batch-tiles-split-low-high; do
+    aws s3 cp s3://{{.Buckets.Assets}}/tileops/go/tz-$gocmd /usr/local/bin/tz-$gocmd
+    chmod +x /usr/local/bin/tz-$gocmd
+done
+aws s3 cp s3://{{.Buckets.Assets}}/tileops/py/bootstrap-requirements.txt /usr/local/etc/py-requirements.txt
+pip install --upgrade pip
+virtualenv /usr/local/venv
+source /usr/local/venv/bin/activate
+pip install -Ur /usr/local/etc/py-requirements.txt
+cd /usr/local/src
+for repo in raw_tiles tilequeue vector-datasource tileops; do
+    git clone https://github.com/tilezen/$repo.git
+    if [ $repo != 'tileops' ]; then
+        (cd $repo && python setup.py install)
+    fi
+    chown -R ec2-user:ec2-user $repo
+done
+cat > /usr/local/etc/planet-env.sh << eof
+#!/bin/bash
+export AWS_DEFAULT_REGION='{{.Region}}'
+export TILE_ASSET_BUCKET='{{.Buckets.Assets}}'
+export TILE_ASSET_ROLE_ARN='{{.AssetsRoleARN}}'
+export DB_PASSWORD='{{.DBPassword}}'
+export RAWR_BUCKET='{{.Buckets.Rawr}}'
+export META_BUCKET='{{.Buckets.Meta}}'
+export MISSING_BUCKET='{{.Buckets.Missing}}'
+
+export DATE='{{.Date.YYYY_DASH_MM_DASH_DD}}'
+export PLANET_DATE='{{.Date.YYMMDD}}'
+export DATE_PREFIX='{{.Date.YYMMDD}}'
+eof
