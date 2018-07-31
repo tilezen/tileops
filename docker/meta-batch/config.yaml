@@ -13,6 +13,8 @@ store:
   date-prefix: ...
   reduced-redundancy: false
   object-acl: private
+  key-format-type: hash-prefix
+  tags: {}
 process:
   query-config: /usr/src/vector-datasource/queries.yaml
   template-path: /usr/src/vector-datasource/queries
@@ -49,6 +51,8 @@ rawr:
       region: ...
       prefix: ...
       suffix: .zip
+      key-format-type: hash-prefix
+      tags: {}
   label-placement-layers:
     point: ['earth', 'water']
     polygon: ['buildings', 'earth', 'landuse', 'water']

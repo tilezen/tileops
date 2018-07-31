@@ -29,6 +29,8 @@ rawr:
       region: ...
       prefix: ...
       suffix: .zip
+      key-format-type: hash-prefix
+      tags: {}
   label-placement-layers:
     point: ['earth', 'water']
     polygon: ['buildings', 'earth', 'landuse', 'water']
