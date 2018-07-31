@@ -55,12 +55,20 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__RAWR__SINK__S3__BUCKET': buckets.rawr,
             'TILEQUEUE__RAWR__SINK__S3__REGION': region,
             'TILEQUEUE__RAWR__SINK__S3__PREFIX': date_prefixes.rawr,
+            'TILEQUEUE__RAWR__SINK__S3__TAGS': dict(
+                prefix=date_prefixes.rawr,
+                run_id=date_prefixes.rawr,
+            ),
         }
 
     elif name == 'meta-batch':
         env = {
             'TILEQUEUE__STORE__NAME': buckets.meta,
             'TILEQUEUE__STORE__DATE-PREFIX': date_prefixes.meta,
+            'TILEQUEUE__STORE__TAGS': dict(
+                prefix=date_prefixes.meta,
+                run_id=date_prefixes.meta,
+            ),
             'TILEQUEUE__RAWR__SOURCE__S3__BUCKET': buckets.rawr,
             'TILEQUEUE__RAWR__SOURCE__S3__REGION': region,
             'TILEQUEUE__RAWR__SOURCE__S3__PREFIX': date_prefixes.rawr,
@@ -75,6 +83,10 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
             'TILEQUEUE__POSTGRESQL__PASSWORD': db_password,
             'TILEQUEUE__STORE__NAME': buckets.meta,
             'TILEQUEUE__STORE__DATE-PREFIX': date_prefixes.meta,
+            'TILEQUEUE__STORE__TAGS': dict(
+                prefix=date_prefixes.meta,
+                run_id=date_prefixes.meta,
+            ),
             'TILEQUEUE__BATCH__CHECK-METATILE-EXISTS': check_metatile_exists,
         }
 
