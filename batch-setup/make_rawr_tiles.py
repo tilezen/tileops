@@ -175,12 +175,12 @@ def make_rawr_tiles(config_file, bucket, date_prefix, retry_attempts,
     exceeded.
     """
 
-    assert os.path.isfile(config_file)
+    assert os.path.isfile(config_file), config_file
     with open(config_file, 'r') as fh:
         config = yaml.load(fh.read())
         job_zoom = config['batch']['queue-zoom']
         logging_config = config['logging']['config']
-        assert os.path.isfile(logging_config)
+        assert os.path.isfile(logging_config), logging_config
         job_queue = config['batch']['job-queue']
 
     for attempt in range(retry_attempts):
