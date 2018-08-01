@@ -150,6 +150,15 @@ def create_orchestration_profile(iam, profile_name, locations):
             dict(
                 Effect='Allow',
                 Action=[
+                    's3:ListBucket',
+                ],
+                Resource=[
+                    'arn:aws:s3:::' + locations.rawr.name,
+                ],
+            ),
+            dict(
+                Effect='Allow',
+                Action=[
                     's3:GetObject',
                 ],
                 Resource=[
