@@ -102,7 +102,7 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
              'missing-meta-tiles-write'):
     config = {
         'logging': {
-            'config': 'logging.conf.sample'
+            'config': 'batch-setup/logging.conf.sample'
         },
         'batch': {
             'memory': memory[name],
