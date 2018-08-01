@@ -140,8 +140,8 @@ def take_snapshot_and_shutdown(db, planet_date):
     waiter.wait(
         DBSnapshotIdentifier=instance_id,
         WaiterConfig=dict(
-            Delay=30,
-            MaxAttempts=60,
+            Delay=60,
+            MaxAttempts=240,
         ),
     )
 
