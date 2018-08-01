@@ -6,7 +6,7 @@ set +e
 yum update -y
 yum install -y git libgeos-devel python-devel postgresql96-devel gcc gcc-c++
 for gocmd in batch-create-job-definition batch-submit-missing-meta-tiles missing-meta-tiles-read batch-tiles-split-low-high; do
-    aws s3 cp s3://{{.Buckets.Assets}}/tileops/go/tz-$gocmd /usr/local/bin/tz-$gocmd
+    aws s3 cp "s3://${ASSETS_BUCKET}/tileops/go/tz-${gocmd}" "/usr/local/bin/tz-${gocmd}"
     chmod +x /usr/local/bin/tz-$gocmd
 done
 aws s3 cp "s3://${ASSETS_BUCKET}/tileops/py/bootstrap-requirements.txt" /usr/local/etc/py-requirements.txt
