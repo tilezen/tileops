@@ -113,7 +113,10 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
             'vcpus': vcpus,
             'job-queue': job_queue_name,
             'job-definition': job_def_names[name],
-        }
+        },
+        'rawr': {
+            'group-zoom': 10,
+        },
     }
     # When enqueueing rawr and metatiles for generation, the job-type needs to
     # be set appropriately. This dictates the size for the batch array option.
