@@ -325,13 +325,13 @@ def generate_or_update_password(smgr, password, name, description):
         # existing password - means we either use it, or update it.
         if not password:
             # fetch existing secret
-            response = smgr.get_secret_value(SecretId=secret['Arn'])
+            response = smgr.get_secret_value(SecretId=secret['ARN'])
             password = response['SecretString']
 
         else:
             # update existing secret
             smgr.update_secret(
-                SecretId=secret['Arn'],
+                SecretId=secret['ARN'],
                 Description=description,
                 SecretString=password,
             )
