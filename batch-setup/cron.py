@@ -150,7 +150,7 @@ def create_orchestration_profile(iam, profile_name, locations):
             dict(
                 Effect='Allow',
                 Action=[
-                    's3:GetItem',
+                    's3:GetObject',
                 ],
                 Resource=[
                     'arn:aws:s3:::' + locations.assets.name + '/*',
