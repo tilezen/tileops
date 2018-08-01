@@ -4,8 +4,10 @@ ASSETS_BUCKET='%(assets_bucket)s'
 
 set +e
 yum update -y
-yum install -y git libgeos-devel python-devel postgresql96-devel gcc gcc-c++
-for gocmd in batch-create-job-definition batch-submit-missing-meta-tiles missing-meta-tiles-read batch-tiles-split-low-high; do
+yum install -y git libgeos-devel python-devel postgresql96-devel gcc gcc-c++ docker
+service docker start
+usermod -a -G docker ec2-user
+for gocmd in batch-create-job-definition batch-submit-missing-meta-tiles missing-meta-tiles-read missing-meta-tiles-write batch-tiles-split-low-high; do
     aws s3 cp "s3://${ASSETS_BUCKET}/tileops/go/tz-${gocmd}" "/usr/local/bin/tz-${gocmd}"
     chmod +x /usr/local/bin/tz-$gocmd
 done
@@ -24,6 +26,7 @@ for repo in raw_tiles tilequeue vector-datasource tileops; do
 done
 cat > /usr/local/etc/planet-env.sh << eof
 #!/bin/bash
+export GOPATH=/usr/local
 export AWS_DEFAULT_REGION='%(region)s'
 export TILE_ASSET_BUCKET='%(assets_bucket)s'
 export TILE_ASSET_PROFILE_ARN='%(assets_profile_arn)s'
