@@ -494,7 +494,8 @@ if __name__ == '__main__':
     db_password = generate_or_update_password(
         smgr, args.db_password, smgr_name, smgr_description)
 
-    user_data_params = dict(
+    # this script is run at startup by the EC2 instance.
+    provision_params = dict(
         region=region,
         assets_bucket=locations.assets.name,
         assets_role_arn=tile_assets_role['Arn'],
@@ -507,9 +508,9 @@ if __name__ == '__main__':
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(script_dir, 'user_data.sh'), 'r') as fh:
-        user_data = fh.read() % user_data_params
-        user_data_base64 = b64encode(user_data)
+    with open(os.path.join(script_dir, 'provision.sh'), 'r') as fh:
+        provision = fh.read() % provision_params
+        provision_base64 = b64encode(provision)
 
     ec2 = boto3.client('ec2')
 
@@ -523,7 +524,9 @@ if __name__ == '__main__':
         InstanceType=args.ec2_instance_type,
         ImageId=ec2_ami_image,
         IamInstanceProfile={'Arn': profile['Arn']},
-        UserData=user_data_base64,
+        # NOTE: the following parameter is just AWS's way of saying "run this
+        # script at startup".
+        UserData=provision_base64,
     )
     if args.ec2_key_name:
         run_instances_params['KeyName'] = args.ec2_key_name
