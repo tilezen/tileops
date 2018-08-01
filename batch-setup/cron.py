@@ -214,15 +214,26 @@ def find_role(iam, role_name):
     return role
 
 
-def create_tile_assets_role(iam, role_name, locations):
+def create_tile_assets_profile(iam, profile_name, locations):
     """
-    Creates a role with read and write access to the tile assets bucket.
+    Creates a profile (and corresponding role) with read and write access to
+    the tile assets bucket.
     """
 
-    role = iam.create_role(
-        RoleName=role_name,
+    profile = iam.create_instance_profile(
+        InstanceProfileName=profile_name,
+        Path='/',
+    )
+
+    iam.create_role(
+        RoleName=profile_name,
         AssumeRolePolicyDocument=json.dumps(
             assume_role_policy_document('ec2.amazonaws.com')),
+    )
+
+    iam.add_role_to_instance_profile(
+        InstanceProfileName=profile_name,
+        RoleName=profile_name,
     )
 
     policy = {
@@ -248,12 +259,12 @@ def create_tile_assets_role(iam, role_name, locations):
     }
 
     iam.put_role_policy(
-        RoleName=role_name,
+        RoleName=profile_name,
         PolicyName='AllowReadWriteAccessToTilesAssetsBucket',
         PolicyDocument=json.dumps(policy),
     )
 
-    return role['Role']
+    return profile['InstanceProfile']
 
 
 def generate_password(length):
@@ -424,10 +435,10 @@ if __name__ == '__main__':
     parser.add_argument('--ec2-security-group', help='EC2 security group ID '
                         'to start orchestration instance in, default is to '
                         'use the default security group.')
-    parser.add_argument('--tile-assets-role-name', help='Name of the role '
-                        'with read and write access to the tile assets '
-                        'bucket. If one does not exist, it will be created.',
-                        default='ec2TilesAssetsRole')
+    parser.add_argument('--tile-assets-profile-name', help='Name of the '
+                        'profile with read and write access to the tile '
+                        'assets bucket. If one does not exist, it will be '
+                        'created.', default='ec2TilesAssetsRole')
     parser.add_argument('--db-password', help='Override the default database '
                         'password.')
     parser.add_argument('--db-password-secret-name', help='The AWS '
@@ -480,11 +491,11 @@ if __name__ == '__main__':
         profile = create_orchestration_profile(iam, profile_name, locations)
     assert profile is not None
 
-    tile_assets_role = find_role(iam, args.tile_assets_role_name)
-    if tile_assets_role is None:
-        tile_assets_role = create_tile_assets_role(
-            iam, args.tile_assets_role_name, locations)
-    assert tile_assets_role is not None
+    tile_assets_profile = find_profile(iam, args.tile_assets_profile_name)
+    if tile_assets_profile is None:
+        tile_assets_profile = create_tile_assets_profile(
+            iam, args.tile_assets_profile_name, locations)
+    assert tile_assets_profile is not None
 
     smgr = boto3.client('secretsmanager')
     smgr_name = (args.db_password_secret_name or
@@ -498,7 +509,7 @@ if __name__ == '__main__':
     provision_params = dict(
         region=region,
         assets_bucket=locations.assets.name,
-        assets_role_arn=tile_assets_role['Arn'],
+        assets_profile_arn=tile_assets_profile['Arn'],
         db_password=db_password,
         rawr_bucket=locations.rawr.name,
         meta_bucket=locations.meta.name,

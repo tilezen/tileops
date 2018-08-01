@@ -26,7 +26,7 @@ cat > /usr/local/etc/planet-env.sh << eof
 #!/bin/bash
 export AWS_DEFAULT_REGION='%(region)s'
 export TILE_ASSET_BUCKET='%(assets_bucket)s'
-export TILE_ASSET_ROLE_ARN='%(assets_role_arn)s'
+export TILE_ASSET_PROFILE_ARN='%(assets_profile_arn)s'
 export DB_PASSWORD='%(db_password)s'
 export RAWR_BUCKET='%(rawr_bucket)s'
 export META_BUCKET='%(meta_bucket)s'
