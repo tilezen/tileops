@@ -61,9 +61,9 @@ def wait_for_profile(iam, profile_name):
     time.sleep(10)
 
 
-def create_orchestration_profile(iam, profile_name, locations):
+def create_tps_profile(iam, profile_name, locations):
     """
-    Creates a profile suitable for use as the orchestration instance.
+    Creates a profile suitable for use as the tps instance.
     """
 
     instance_profile = iam.create_instance_profile(
@@ -389,7 +389,7 @@ def create_security_group_allowing_this_ip(ec2):
 
     ip_addr = requests.get('https://api.ipify.org').text
     ip = ip_address(ip_addr)
-    sg_name = 'orchestration-allow-' + str(ip).replace('.', '-')
+    sg_name = 'tps-allow-' + str(ip).replace('.', '-')
 
     # try to find existing SG called this
     sg_id = find_security_group(ec2, sg_name)
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     from base64 import b64encode
 
     parser = argparse.ArgumentParser(
-        'Script to orchestrate automated tile creation.')
+        'Script to automate the tile production system.')
     parser.add_argument('date', help='Planet date, YYMMDD')
     parser.add_argument('--region', help='AWS region to use. This must be '
                         'provided if the environment variable '
@@ -432,18 +432,18 @@ if __name__ == '__main__':
     parser.add_argument('--meta-bucket', help='Override default name for '
                         'meta tiles bucket.')
     parser.add_argument('--profile-name', help='Profile name to use. Default '
-                        'is "tile-orchestration-YYMMDD" with planet date.')
+                        'is "tps-YYMMDD" with planet date.')
     parser.add_argument('--ec2-key-name', help='Provide this to set an EC2 '
                         'SSH key name. If you do not want to log into the '
                         'instance, you do not need to provide one.')
     parser.add_argument('--ec2-instance-type', help='EC2 instance type to use '
-                        'for orchestration instance.', default='t2.micro')
+                        'for tps instance.', default='t2.micro')
     parser.add_argument('--ec2-ami-image', help='EC2 AMI image ID for the '
-                        'orchestration instance. Default is to use the latest '
+                        'tps instance. Default is to use the latest '
                         'Amazon Linux HVM/EBS image.')
     parser.add_argument('--ec2-security-group', help='EC2 security group ID '
-                        'to start orchestration instance in, default is to '
-                        'use the default security group.')
+                        'to start tps instance in, default is to use the '
+                        'default security group.')
     parser.add_argument('--tile-assets-profile-name', help='Name of the '
                         'profile with read and write access to the tile '
                         'assets bucket. If one does not exist, it will be '
@@ -469,7 +469,7 @@ if __name__ == '__main__':
 
     profile_name = args.profile_name
     if profile_name is None:
-        profile_name = planet_date.strftime('tile-orchestration-%y%m%d')
+        profile_name = planet_date.strftime('tps-%y%m%d')
 
     def bucket_name(arg_name, bucket_function):
         prop_name = arg_name.lstrip('-').replace('-', '_')
@@ -497,7 +497,7 @@ if __name__ == '__main__':
 
     profile = find_profile(iam, profile_name)
     if profile is None:
-        profile = create_orchestration_profile(iam, profile_name, locations)
+        profile = create_tps_profile(iam, profile_name, locations)
     assert profile is not None
 
     tile_assets_profile = find_profile(iam, args.tile_assets_profile_name)
