@@ -58,3 +58,6 @@ rawr:
       layer: boundaries
   intersect: {type: none}
 use-rawr-tiles: true
+batch:
+  queue-zoom: 7
+  check-metatile-exists: true
