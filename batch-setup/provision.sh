@@ -26,7 +26,6 @@ for repo in raw_tiles tilequeue vector-datasource tileops; do
 done
 cat > /usr/local/etc/planet-env.sh << eof
 #!/bin/bash
-export GOPATH=/usr/local
 export AWS_DEFAULT_REGION='%(region)s'
 export TILE_ASSET_BUCKET='%(assets_bucket)s'
 export TILE_ASSET_PROFILE_ARN='%(assets_profile_arn)s'

@@ -346,22 +346,46 @@ def make_job_definitions(
     return job_definitions, definition_names
 
 
+def find_command_in_paths(cmd, paths):
+    for p in paths:
+        exe = os.path.join(p, cmd)
+        if os.path.isfile(exe) and os.access(exe, os.X_OK):
+            return exe
+    return None
+
+
+def find_command(cmd):
+    gopath = os.getenv('GOPATH')
+    if gopath is not None:
+        candidate_paths = [
+            os.path.join(p, 'bin') for p in gopath.split(':')]
+        result = find_command_in_paths(cmd, candidate_paths)
+        if result is not None:
+            return result
+    path = os.getenv('PATH')
+    if path is not None:
+        return find_command_in_paths(path.split(':'))
+    return None
+
+
 def run_go(cmd, *args, **kwargs):
     """
     Runs the Go executable cmd with the given args. Raises an exception if the
     command failed (return code != 0). If stdout is given as a kwarg, then
     write the command's stdout to that file.
 
-    The cmd is expected to be in $GOPATH/bin.
+    The cmd is expected to be either in $GOPATH/bin if $GOPATH is set, or in
+    $PATH.
     """
+
+    exe = find_command(cmd)
+    if exe is None:
+        raise RuntimeError("Unable to find executable %r. Did you build "
+                           "the Go tileops tools?" % (exe))
 
     # fully qualify the path to the executable, so we're 100% certain
     # what we're running.
     gopath = os.environ['GOPATH']
-    exe = os.path.join(gopath, 'bin', cmd)
-    if not os.path.isfile(exe) or not os.access(exe, os.X_OK):
-        raise RuntimeError("Unable to find executable %r. Did you build "
-                           "the Go tileops tools?" % (exe))
 
     # have to construct an environment which will allow the Go-based
     # command to access the AWS session that this program is using. this
