@@ -383,10 +383,6 @@ def run_go(cmd, *args, **kwargs):
         raise RuntimeError("Unable to find executable %r. Did you build "
                            "the Go tileops tools?" % (exe))
 
-    # fully qualify the path to the executable, so we're 100% certain
-    # what we're running.
-    gopath = os.environ['GOPATH']
-
     # have to construct an environment which will allow the Go-based
     # command to access the AWS session that this program is using. this
     # means adding a bunch of stuff to the environment, and calling the
@@ -394,7 +390,6 @@ def run_go(cmd, *args, **kwargs):
     session = boto3.session.Session()
     creds = session.get_credentials()
     env = {
-        'GOPATH': gopath,
         'AWS_SESSION_TOKEN': creds.token,
         'AWS_ACCESS_KEY_ID': creds.access_key,
         'AWS_SECRET_ACCESS_KEY': creds.secret_key,
