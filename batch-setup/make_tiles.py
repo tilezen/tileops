@@ -102,7 +102,9 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
              'missing-meta-tiles-write'):
     config = {
         'logging': {
-            'config': 'batch-setup/logging.conf.sample'
+            'config': os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                'logging.conf.sample'),
         },
         'batch': {
             'memory': memory[name],
