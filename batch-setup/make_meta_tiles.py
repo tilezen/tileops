@@ -110,6 +110,7 @@ class MissingTileFinder(object):
         information about the tiles which are missing.
         """
 
+        self.run_batch_job()
         tmpdir = tempfile.mkdtemp()
         try:
             missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
@@ -146,6 +147,7 @@ class MissingTileFinder(object):
         list of all the tile coordinates which _are present_ in the S3 bucket.
         """
 
+        self.run_batch_job()
         tmpdir = tempfile.mkdtemp()
         try:
             tile_file = os.path.join(tmpdir, 'tiles.txt')
