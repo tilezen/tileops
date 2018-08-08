@@ -15,6 +15,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
+// the order of date and hash as a prefix for the tile coordinate to list.
+// having the date first makes things easier to list and interact with in the AWS UI, since the top-level grouping is "human-readable". the hash first is better for S3's sharding, but can make it harder to interact with.
+type KeyFormatType int
+
+const (
+	PREFIX_HASH KeyFormatType = iota // date, then hash.
+	HASH_PREFIX                      // hash then date.
+)
+
 func isHexChar(c rune) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
 }
@@ -40,10 +49,19 @@ func genHexPrefixes(hexPrefixChan chan<- string, hexPrefix string) {
 	close(hexPrefixChan)
 }
 
-func listPrefix(hexPrefixChan <-chan string, coordsChan chan<- []coord.Coord, svc *s3.S3, srcBucket string, srcDatePrefix string, concurrency uint) {
+// formatKey returns the prefix to be used for all keys, given a date and hash along with the format type.
+func formatKey(hash, date string, keyFormatType KeyFormatType) string {
+	if keyFormatType == PREFIX_HASH {
+		return fmt.Sprintf("%s/%s/", date, hash)
+	} else {
+		return fmt.Sprintf("%s/%s/", hash, date)
+	}
+}
+
+func listPrefix(hexPrefixChan <-chan string, coordsChan chan<- []coord.Coord, svc *s3.S3, srcBucket string, srcDatePrefix string, concurrency uint, keyFormatType KeyFormatType) {
 	util.Concurrently(concurrency, func() {
 		for hexPrefix := range hexPrefixChan {
-			prefix := fmt.Sprintf("%s/%s/", srcDatePrefix, hexPrefix)
+			prefix := formatKey(hexPrefix, srcDatePrefix, keyFormatType)
 			input := s3.ListObjectsInput{
 				Bucket: &srcBucket,
 				Prefix: &prefix,
@@ -108,6 +126,8 @@ func main() {
 	var hexPrefix string
 	var concurrency uint
 	var region string
+	var keyFormatTypeStr string
+	var keyFormatType KeyFormatType
 
 	// TODO is this better to put in a yaml file?
 	flag.StringVar(&srcBucket, "src-bucket", "", "source s3 bucket to enumerate tiles")
@@ -117,10 +137,22 @@ func main() {
 	flag.StringVar(&hexPrefix, "hex-prefix", "", "hex prefix for job, must be 3 lowercase hexadecimal characters")
 	flag.UintVar(&concurrency, "concurrency", 16, "number of goroutines listing bucket per hash prefix")
 	flag.StringVar(&region, "region", "us-east-1", "region")
+	flag.StringVar(&keyFormatTypeStr, "prefix-order", "", "Either 'date-hash' or 'hash-date' to control the order of the date and hash in the src S3 key.")
 
 	flag.Parse()
 
 	if srcBucket == "" || srcDatePrefix == "" || destBucket == "" || destDatePrefix == "" || hexPrefix == "" {
+		cmd.DieWithUsage()
+	}
+
+	if keyFormatTypeStr == "date-hash" {
+		keyFormatType = DATE_HASH
+
+	} else if keyFormatTypeStr == "hash-date" {
+		keyFormatType = HASH_DATE
+
+	} else if keyFormatTypeStr != "" {
+		fmt.Fprintf(os.Stderr, "Unknown value %#v for -prefix-order argument.\n", keyFormatTypeStr)
 		cmd.DieWithUsage()
 	}
 
@@ -140,7 +172,7 @@ func main() {
 	doneChan := make(chan interface{})
 
 	go genHexPrefixes(hexPrefixChan, hexPrefix)
-	go listPrefix(hexPrefixChan, coordsChan, svc, srcBucket, srcDatePrefix, concurrency)
+	go listPrefix(hexPrefixChan, coordsChan, svc, srcBucket, srcDatePrefix, concurrency, keyFormatType)
 	go writeCoords(coordsChan, doneChan, svc, destBucket, destDatePrefix, hexPrefix)
 
 	<-doneChan

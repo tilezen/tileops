@@ -24,6 +24,7 @@ for repo in raw_tiles tilequeue vector-datasource tileops; do
     fi
     chown -R ec2-user:ec2-user $repo
 done
+(cd tileops; git checkout tps-updates)
 cat > /usr/local/etc/planet-env.sh << eof
 #!/bin/bash
 export AWS_DEFAULT_REGION='%(region)s'

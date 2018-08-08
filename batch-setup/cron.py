@@ -133,17 +133,16 @@ def create_tps_profile(iam, profile_name, locations):
         ),
     )
 
+    assets_path = locations.assets.name + '/' + locations.assets.prefix + '/*'
     s3_policy = dict(
         Version='2012-10-17',
         Statement=[
             dict(
                 Effect='Allow',
                 Action=[
-                    's3:ListBucket',
                     's3:DeleteObject',
                 ],
                 Resource=[
-                    'arn:aws:s3:::' + locations.missing.name,
                     'arn:aws:s3:::' + locations.missing.name + '/*',
                 ],
             ),
@@ -153,7 +152,8 @@ def create_tps_profile(iam, profile_name, locations):
                     's3:ListBucket',
                 ],
                 Resource=[
-                    'arn:aws:s3:::' + locations.rawr.name,
+                    'arn:aws:s3:::' + locations.missing.name,
+                    'arn:aws:s3:::' + locations.assets.name,
                 ],
             ),
             dict(
@@ -162,7 +162,8 @@ def create_tps_profile(iam, profile_name, locations):
                     's3:GetObject',
                 ],
                 Resource=[
-                    'arn:aws:s3:::' + locations.assets.name + '/*',
+                    'arn:aws:s3:::' + locations.assets.name + '/tileops/*',
+                    'arn:aws:s3:::' + locations.assets.name + assets_path,
                 ],
             ),
         ],
@@ -245,6 +246,7 @@ def create_tile_assets_profile(iam, profile_name, locations):
         RoleName=profile_name,
     )
 
+    assets_path = locations.assets.name + '/' + locations.assets.prefix + '/*'
     policy = {
         "Version": "2012-10-17",
         "Statement": [
@@ -256,7 +258,7 @@ def create_tile_assets_profile(iam, profile_name, locations):
                     "s3:GetObject",
                     "s3:DeleteObject"
                 ],
-                "Resource": 'arn:aws:s3:::' + locations.assets.name + '/*',
+                "Resource": 'arn:aws:s3:::' + assets_path,
             },
             {
                 "Sid": "VisualEditor1",
@@ -487,7 +489,7 @@ if __name__ == '__main__':
     meta_bucket = bucket_name('--meta-bucket', 'meta-tiles')
     date_prefix = planet_date.strftime('%y%m%d')
     locations = Locations(
-        Bucket(assets_bucket, date_prefix),
+        Bucket(assets_bucket, 'flat-nodes-' + date_prefix),
         Bucket(rawr_bucket, date_prefix),
         Bucket(meta_bucket, date_prefix),
         Bucket(missing_bucket, date_prefix),

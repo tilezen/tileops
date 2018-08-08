@@ -141,6 +141,8 @@ def cmd_for_image(name, region):
             'Ref::hex_prefix',
             '-region',
             region,
+            '-key-format-type',
+            'Ref::key_format_type',
         ]
 
     else:
@@ -364,7 +366,7 @@ def find_command(cmd):
             return result
     path = os.getenv('PATH')
     if path is not None:
-        return find_command_in_paths(path.split(':'))
+        return find_command_in_paths(cmd, path.split(':'))
     return None
 
 

@@ -5,6 +5,7 @@ from tilequeue.command import make_config_from_argparse
 from tilequeue.command import tilequeue_batch_enqueue
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
+from make_meta_tiles import MissingTileFinder
 import boto3
 import os.path
 import shutil
@@ -19,54 +20,6 @@ import yaml
 BatchEnqueueArgs = namedtuple('BatchEnqueueArgs', 'config tile file pyramid')
 
 
-# parse a coordinate from an S3 key.
-# TODO: don't we have an implementation of this somewhere else to reuse???
-def coord_from_key(key):
-    ext = '.zip'
-    assert key.endswith(ext)
-    # skip backward through the string's '/'. this is an attempt to avoid the
-    # overhead of allocating a bunch of strings by splitting on '/' when we
-    # are just going to join them back together anyway.
-    i = key.rfind('/')
-    i = key.rfind('/', 0, i)
-    i = key.rfind('/', 0, i)
-    return deserialize_coord(key[(i+1):-len(ext)])
-
-
-def ls(bucket, date_prefix):
-    """
-    Generate the coordinates of all the tiles in the bucket with the given
-    date prefix.
-    """
-
-    from sys import stderr
-
-    s3 = boto3.client('s3')
-    paginator = s3.get_paginator('list_objects_v2')
-    response_iter = paginator.paginate(
-        Bucket=bucket,
-        Prefix=date_prefix,
-    )
-
-    # this takes a while, so it's nice to have some output to tell us it's
-    # doing something and allows us to roughly figure how long left to go.
-    total_keys = 0
-    stderr.write("Listed %d tiles..." % (total_keys))
-    for response in response_iter:
-        num_keys = response['KeyCount']
-        if num_keys == 0:
-            continue
-
-        for obj in response['Contents']:
-            key = obj['Key']
-            assert key.startswith(date_prefix)
-            coord = coord_from_key(key)
-            yield coord
-
-        total_keys += num_keys
-        stderr.write("\rListed %d tiles..." % (total_keys))
-
-
 def all_tiles_at(zoom):
     """
     Generate all the coordinates at a given zoom level.
@@ -78,20 +31,28 @@ def all_tiles_at(zoom):
             yield Coordinate(zoom=zoom, column=x, row=y)
 
 
-def missing_tiles(bucket, date_prefix, zoom):
-    print("Finding missing tiles in s3://%s/%s/..." % (bucket, date_prefix))
-
+def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
+                  key_format_type, config, zoom):
     present = set()
-    for coord in ls(bucket, date_prefix):
-        if coord.zoom == zoom:
-            present.add(coord)
+
+    finder = MissingTileFinder(
+        missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
+        config)
+
+    with finder.present_tiles() as present_file:
+        with open(present_file) as fh:
+            for line in fh:
+                coord = deserialize_coord(line)
+                if coord.zoom == zoom:
+                    present.add(coord)
 
     missing = set(all_tiles_at(zoom)) - set(present)
     return missing
 
 
 @contextmanager
-def missing_jobs(bucket, date_prefix, tile_zoom=10, job_zoom=7):
+def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
+                 tile_zoom=10, job_zoom=7, key_format_type='prefix-hash'):
     """
     Write and yield file containing a z/x/y coordinate for each job (at the
     job zoom) corresponding to a missing tile (at the tile zoom) in the bucket.
@@ -99,7 +60,9 @@ def missing_jobs(bucket, date_prefix, tile_zoom=10, job_zoom=7):
     Cleans up the temporary directory after the yielded-to code returns.
     """
 
-    tiles = missing_tiles(bucket, date_prefix, tile_zoom)
+    tiles = missing_tiles(
+        missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
+        config, tile_zoom)
     jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
 
     print("Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
@@ -166,8 +129,9 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
     print("All jobs finished (either SUCCEEDED or FAILED)")
 
 
-def make_rawr_tiles(config_file, bucket, date_prefix, retry_attempts,
-                    tile_zoom=10):
+def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
+                    rawr_bucket, region, date_prefix, retry_attempts,
+                    tile_zoom=10, key_format_type='prefix-hash'):
     """
     Finds out which jobs need to be run to have a complete RAWR tiles bucket,
     runs them and waits for them to complete. If the bucket still isn't
@@ -175,8 +139,8 @@ def make_rawr_tiles(config_file, bucket, date_prefix, retry_attempts,
     exceeded.
     """
 
-    assert os.path.isfile(config_file), config_file
-    with open(config_file, 'r') as fh:
+    assert os.path.isfile(rawr_config_file), rawr_config_file
+    with open(rawr_config_file, 'r') as fh:
         config = yaml.load(fh.read())
         job_zoom = config['batch']['queue-zoom']
         logging_config = config['logging']['config']
@@ -184,29 +148,27 @@ def make_rawr_tiles(config_file, bucket, date_prefix, retry_attempts,
         job_queue = config['batch']['job-queue']
 
     for attempt in range(retry_attempts):
-        with missing_jobs(bucket, date_prefix, tile_zoom,
-                          job_zoom) as missing_file:
+        with missing_jobs(
+                missing_bucket, rawr_bucket, date_prefix, region,
+                missing_config_file, tile_zoom, job_zoom, key_format_type
+        ) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
                 print("Successfully generated all the RAWR tiles after "
                       "%d re-enqueues!" % (attempt))
                 return
 
-            args = BatchEnqueueArgs(config_file, None, missing_file, None)
+            args = BatchEnqueueArgs(rawr_config_file, None, missing_file, None)
             with open(args.config) as fh:
                 cfg = make_config_from_argparse(fh)
             tilequeue_batch_enqueue(cfg, args)
 
             wait_for_jobs_to_finish(job_queue)
 
-    with missing_tiles(bucket, date_prefix, tile_zoom,
-                       job_zoom) as missing_file:
-        missing_file_notmp = 'missing_tiles.txt'
-        num_missing = wc_line(missing_file)
-        shutil.copyfile(missing_file, missing_file_notmp)
-        print("Ran %d times, but still have %d missing tiles. The list is "
-              "in %r for you. Good luck!" %
-              (retry_attempts, num_missing, missing_file_notmp))
+    tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
+                          key_format_type, config, tile_zoom)
+    print("Ran %d times, but still have %d missing tiles. Good luck!" %
+          (retry_attempts, len(tiles)))
 
 
 if __name__ == '__main__':
@@ -223,7 +185,29 @@ if __name__ == '__main__':
     parser.add_argument('--tile-zoom', default=10, type=int,
                         help="Zoom level at which tiles are saved -- not the "
                         "same thing as the zoom level jobs are run at!")
+    parser.add_argument('--key-format-type', default='prefix-hash',
+                        help="Key format type, either 'prefix-hash' or "
+                        "'hash-prefix', controls whether the S3 key is "
+                        "prefixed with the date or hash first.")
+    parser.add_argument('--region', help='AWS region. If not provided, then '
+                        'the AWS_DEFAULT_REGION environment variable must be '
+                        'set.')
+    parser.add_argument('--missing-config',
+                        default='enqueue-missing-meta-tiles-write.config.yaml',
+                        help="Configuration file for missing tile enumeration "
+                        "written out by make_tiles.py")
+    parser.add_argument('--missing-bucket', help="Bucket to store tile "
+                        "enumeration logs in while calculating missing tiles.")
 
     args = parser.parse_args()
-    make_rawr_tiles(args.config, args.bucket, args.date_prefix,
-                    args.retries, args.tile_zoom)
+    assert args.key_format_type in ('prefix-hash', 'hash-prefix')
+
+    region = args.region or os.environ.get('AWS_DEFAULT_REGION')
+    if region is None:
+        import sys
+        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        sys.exit(1)
+
+    make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
+                    args.bucket, region, args.date_prefix, args.retries,
+                    args.tile_zoom, args.key_format_type)
