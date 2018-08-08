@@ -549,6 +549,13 @@ if __name__ == '__main__':
         # NOTE: the following parameter is just AWS's way of saying "run this
         # script at startup".
         UserData=provision_base64,
+        TagSpecifications=[dict(
+            ResourceType='instance',
+            Tags=[dict(
+                Key='tps-instance',
+                Value=planet_date.strftime('%Y-%m-%d'),
+            )],
+        )],
     )
     if args.ec2_key_name:
         run_instances_params['KeyName'] = args.ec2_key_name
@@ -563,6 +570,15 @@ if __name__ == '__main__':
     reservation_id = response['ReservationId']
     assert len(response['Instances']) == 1
     instance = response['Instances'][0]
+    instance_id = instance['InstanceId']
 
     print('reservation ID: %s' % (reservation_id,))
-    print('instance ID:    %s' % (instance['InstanceId'],))
+    print('instance ID:    %s' % (instance_id,))
+
+    print('Waiting for instance to come up...')
+    waiter = ec2.get_waiter('instance_status_ok')
+    waiter.wait(InstanceIds=[instance_id])
+
+    response = ec2.describe_instances(InstanceIds=[instance_id])
+    instance = response['Reservations'][0]['Instances'][0]
+    print('public IP:      %r' % (instance.get('PublicIpAddress'),))
