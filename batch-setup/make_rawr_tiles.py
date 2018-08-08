@@ -5,7 +5,6 @@ from tilequeue.command import make_config_from_argparse
 from tilequeue.command import tilequeue_batch_enqueue
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
-from make_meta_tiles import MissingTileFinder
 import boto3
 import os.path
 import shutil
@@ -33,6 +32,8 @@ def all_tiles_at(zoom):
 
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                   key_format_type, config, zoom):
+    from make_meta_tiles import MissingTileFinder
+
     present = set()
 
     finder = MissingTileFinder(
