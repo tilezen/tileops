@@ -19,9 +19,15 @@ type batchCfg struct {
 	jobQueue, jobDefinition string
 }
 
-func genPrefixes(prefixesChan chan<- string) {
-	totalPrefixes := 16 * 16 * 16
-	for i := 0; i < totalPrefixes; i++ {
+func genPrefixes(prefixesChan chan<- string, limit uint) {
+	var totalPrefixes uint = 16 * 16 * 16
+
+	numPrefixesToSend := totalPrefixes
+	if limit > 0 && limit < totalPrefixes {
+		numPrefixesToSend = limit
+	}
+
+	for i := uint(0); i < numPrefixesToSend; i++ {
 		hexValue := fmt.Sprintf("%03x", i)
 		prefixesChan <- hexValue
 	}
@@ -72,7 +78,7 @@ func main() {
 		srcBucket,
 		srcDatePrefix,
 		region string
-	var concurrency uint
+	var concurrency, limit uint
 	var keyFormatType string
 
 	// TODO is this better to put in a yaml file?
@@ -85,6 +91,7 @@ func main() {
 	flag.UintVar(&concurrency, "concurrency", 2, "number of goroutines submitting jobs")
 	flag.StringVar(&region, "region", "us-east-1", "region")
 	flag.StringVar(&keyFormatType, "key-format-type", "prefix-hash", "S3 key format type, either 'prefix-hash' or 'hash-prefix'.")
+	flag.UintVar(&limit, "limit", 0, "Debugging option: Send only the first N jobs. The default 0 means send all jobs.")
 
 	flag.Parse()
 
@@ -112,7 +119,7 @@ func main() {
 	prefixesChan := make(chan string, concurrency)
 	doneChan := make(chan interface{})
 
-	go genPrefixes(prefixesChan)
+	go genPrefixes(prefixesChan, limit)
 	go submitJobs(prefixesChan, doneChan, &s3Cfg, &batchCfg, svc, concurrency, keyFormatType)
 	<-doneChan
 
