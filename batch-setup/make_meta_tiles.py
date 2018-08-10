@@ -29,6 +29,12 @@ class MissingTileFinder(object):
         self.region = region
         self.key_format_type = key_format_type
 
+        assert self.missing_bucket
+        assert self.tile_bucket
+        assert self.date_prefix
+        assert self.region
+        assert self.key_format_type is not None
+
         with open(config, 'r') as fh:
             conf = yaml.load(fh.read())
             self.job_queue_name = conf['batch']['job-queue']
@@ -44,7 +50,7 @@ class MissingTileFinder(object):
         paginator = self.s3.get_paginator('list_objects_v2')
         page_iter = paginator.paginate(
             Bucket=self.missing_bucket,
-            Prefix=date_prefix,
+            Prefix=self.date_prefix,
         )
 
         print("Listing logs to delete.")
