@@ -299,6 +299,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefix):
     elif image_name == 'missing-meta-tiles-write':
         rp.allow_s3_write('missing', buckets.missing)
         rp.allow_s3_read('meta', buckets.meta)
+        rp.allow_s3_read('RAWR', buckets.rawr)
 
     else:
         raise RuntimeError("Unknown image name %r while building job role."
