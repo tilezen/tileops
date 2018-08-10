@@ -101,12 +101,17 @@ class MissingTileFinder(object):
         print("Waiting for jobs to finish...")
         wait_for_jobs_to_finish(self.job_queue_name)
 
-    def read_metas_to_file(self, filename):
-        print("Reading existing meta tiles")
+    def read_metas_to_file(self, filename, present=False):
+        if present:
+            print("Reading existing meta tiles")
+        else:
+            print("Reading missing meta tiles")
+
         run_go('tz-missing-meta-tiles-read',
                '-bucket', self.missing_bucket,
                '-date-prefix', self.date_prefix,
                '-region', self.region,
+               '-present=%r' % (bool(present),),
                stdout=filename)
 
     @contextmanager
@@ -157,7 +162,7 @@ class MissingTileFinder(object):
         tmpdir = tempfile.mkdtemp()
         try:
             tile_file = os.path.join(tmpdir, 'tiles.txt')
-            self.read_metas_to_file(tile_file)
+            self.read_metas_to_file(tile_file, present=True)
             yield tile_file
 
         finally:
