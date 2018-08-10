@@ -28,6 +28,10 @@ def delete_all_job_definitions(batch, planet_date):
 
 
 def delete_job_queue(batch, job_queue, terminate):
+    response = batch.describe_job_queues(jobQueues=[job_queue])
+    if len(response['jobQueues']) == 0:
+        return
+
     if terminate:
         # terminate any jobs which are running
         terminate_all_jobs(job_queue, 'Tearing down the stack')
@@ -63,6 +67,19 @@ def delete_job_queue(batch, job_queue, terminate):
     # delete the job queue
     print("Deleting job queue %r" % (job_queue,))
     batch.delete_job_queue(jobQueue=job_queue)
+
+    # wait for queue to be deleted, otherwise it causes issues when we try to
+    # delete the compute environment, which is still referred to by the queue.
+    print("Waiting for job queue to be deleted...")
+    while True:
+        response = batch.describe_job_queues(jobQueues=[job_queue])
+        if len(response['jobQueues']) == 0:
+            break
+
+        # wait a little bit...
+        sleep(15)
+
+    print("Deleted job queue.")
 
 
 def terminate_instances_by_tag(tags):
@@ -192,6 +209,11 @@ if __name__ == '__main__':
                         'default compute-env-YYMMDD with planet date.')
     parser.add_argument('--region', help='AWS region. Default taken from '
                         'the AWS_DEFAULT_REGION environment variable.')
+    parser.add_argument('--leave-databases-running', action='store_true',
+                        help='Do not tear down the database replicas, leave '
+                        'them running. These can take a long time to stop and '
+                        'start, so it can be worth leaving them up if you are '
+                        'bouncing the environment.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -207,12 +229,11 @@ if __name__ == '__main__':
 
     batch = boto3.client('batch')
 
-    response = batch.describe_job_queues(jobQueues=[job_queue])
-    if len(response['jobQueues']) > 0:
-        delete_job_queue(batch, job_queue, args.terminate)
+    delete_job_queue(batch, job_queue, args.terminate)
 
-    # delete the job definitions
-    delete_all_job_definitions(batch, planet_date)
+    # delete the job definitions - TODO: doesn't look like these _can_ be
+    # deleted, only disabled, and just clutters up the output.
+    #delete_all_job_definitions(batch, planet_date)
 
     # delete the compute environment
     response = batch.describe_compute_environments(
@@ -220,8 +241,9 @@ if __name__ == '__main__':
     if len(response['computeEnvironments']) > 0:
         delete_compute_env(batch, compute_env)
 
-    # shutdown all database replicas
-    ensure_dbs(planet_date, 0)
+    if not args.leave_databases_running:
+        # shutdown all database replicas
+        ensure_dbs(planet_date, 0)
 
     # terminate any running instances - if the osm2pgsql instance is running,
     # then that, also the TPS "orchestration" instance.
