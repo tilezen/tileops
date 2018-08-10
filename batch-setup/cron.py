@@ -133,7 +133,7 @@ def create_tps_profile(iam, profile_name, locations):
         ),
     )
 
-    assets_path = locations.assets.name + '/' + locations.assets.prefix + '/*'
+    assets_path = '/' + locations.assets.prefix + '/*'
     s3_policy = dict(
         Version='2012-10-17',
         Statement=[
@@ -164,6 +164,7 @@ def create_tps_profile(iam, profile_name, locations):
                 Resource=[
                     'arn:aws:s3:::' + locations.assets.name + '/tileops/*',
                     'arn:aws:s3:::' + locations.assets.name + assets_path,
+                    'arn:aws:s3:::' + locations.missing.name + '/*',
                 ],
             ),
         ],
