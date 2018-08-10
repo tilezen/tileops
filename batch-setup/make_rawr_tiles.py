@@ -197,11 +197,13 @@ if __name__ == '__main__':
                         default='enqueue-missing-meta-tiles-write.config.yaml',
                         help="Configuration file for missing tile enumeration "
                         "written out by make_tiles.py")
-    parser.add_argument('--missing-bucket', help="Bucket to store tile "
+    parser.add_argument('missing_bucket', help="Bucket to store tile "
                         "enumeration logs in while calculating missing tiles.")
 
     args = parser.parse_args()
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
+    assert args.bucket
+    assert args.missing_bucket
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
