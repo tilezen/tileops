@@ -152,9 +152,13 @@ def cmd_for_image(name, region):
 
 
 def s3_policy(bucket, date_prefix, allow_write=False):
-    actions = ['s3:GetObject']
+    actions = ['s3:GetObject', 's3:GetObjectTagging']
     if allow_write:
-        actions.extend(['s3:PutObject', 's3:DeleteObject'])
+        actions.extend([
+            's3:PutObject',
+            's3:PutObjectTagging',
+            's3:DeleteObject',
+        ])
 
     policy = {
         "Version": "2012-10-17",
@@ -163,7 +167,12 @@ def s3_policy(bucket, date_prefix, allow_write=False):
                 "Sid": "ObjectOps",
                 "Effect": "Allow",
                 "Action": actions,
-                "Resource": "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+                "Resource": [
+                    # allow access to objects under the date prefix
+                    "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+                    # and also objects under a hash + date prefix
+                    "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
+                ],
             },
             {
                 "Sid": "BucketOps",
