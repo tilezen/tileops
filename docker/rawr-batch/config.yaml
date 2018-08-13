@@ -8,6 +8,10 @@ rawr:
     dbname: ...
     user: ...
     password: ...
+    # fail if a connection can't be made in 10 seconds. the default is to wait forever, which can be a
+    # problem as it causes Batch jobs to wait forever and clog up the job queue - better that the job
+    # fails and can be retried later. note that the value is a _string_, as per the PostgreSQL docs.
+    connect_timeout: "10"
   source:
     type: s3
     table-sources:
