@@ -2,13 +2,14 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"flag"
 	"fmt"
+	"io"
 	"os"
-	"sort"
+
 	"tzops/go/pkg/cmd"
 	"tzops/go/pkg/coord"
-	"tzops/go/pkg/coord/cmp"
 	"tzops/go/pkg/coord/gen"
 	"tzops/go/pkg/util"
 
@@ -74,27 +75,79 @@ func readAllCoords(coordsChan <-chan []coord.Coord) []coord.Coord {
 	return result
 }
 
-func findMissingCoords(coordsChan <-chan []coord.Coord, doneChan chan<- interface{}, min_zoom, max_zoom uint) {
-	allCoordsGen := gen.NewZoomRange(min_zoom, max_zoom)
-	// need to realize the channel to get all coordinates
-	// in a slice first for sorting purposes
-	coords := readAllCoords(coordsChan)
-	sort.Sort(coord.ByZYX(coords))
-	coordsGen := gen.NewSlice(coords)
-	missing := cmp.FindMissingTiles(allCoordsGen, coordsGen)
-	for _, coord := range missing {
-		fmt.Println(coord)
-	}
-	doneChan <- struct{}{}
-}
+const (
+	COORD_BATCH_SIZE = 1024
+)
 
-func printCoords(coordsChan <-chan []coord.Coord, doneChan chan<- interface{}) {
+func findMissingCoords(coordsChan <-chan []coord.Coord, outputChan chan<- []coord.Coord, min_zoom, max_zoom uint) {
+	cs := coord.NewCoordSet()
+
+	// set all the ones we expect to find to true
+	allCoordsGen := gen.NewZoomRange(min_zoom, max_zoom)
+	for {
+		c := allCoordsGen.Next()
+		if c == nil {
+			break
+		}
+		cs.Set(*c, true)
+	}
+
+	// then clear all the ones we actually found - any left as true must be missing
 	for coordArray := range coordsChan {
-		for _, coord := range coordArray {
-			fmt.Println(coord)
+		for _, c := range coordArray {
+			cs.Set(c, false)
 		}
 	}
-	doneChan <- struct{}{}
+
+	coords := make([]coord.Coord, 0, COORD_BATCH_SIZE)
+	listGen := gen.NewZoomRange(min_zoom, max_zoom)
+	for {
+		c := listGen.Next()
+		if c == nil {
+			break
+		}
+		val := cs.Get(*c)
+		if val {
+			if cap(coords) == len(coords) {
+				outputChan <- coords
+				coords = make([]coord.Coord, 0, COORD_BATCH_SIZE)
+			}
+			coords = append(coords, *c)
+		}
+	}
+	if len(coords) > 0 {
+		outputChan <- coords
+	}
+	close(outputChan)
+}
+
+func printCoords(coordsChan <-chan []coord.Coord, doneChan chan<- error, compressOutput bool) {
+	var err error
+
+	var output io.WriteCloser = os.Stdout
+	if compressOutput {
+		output = gzip.NewWriter(output)
+	}
+
+	// buffer output so we make fewer system calls.
+	buf := bufio.NewWriter(output)
+	for coordArray := range coordsChan {
+		for _, coord := range coordArray {
+			// don't immediately exit when we get an error - instead we want to train the coordsChan, so keep reading until the range is done, just don't write anything to the buffer.
+			if err == nil {
+				_, err = buf.WriteString(coord.String())
+			}
+			if err == nil {
+				_, err = buf.WriteString("\n")
+			}
+		}
+	}
+	err = buf.Flush()
+	if compressOutput && err == nil {
+		// note: can't defer this, as then it would execute after the doneChan write. because the doneChan write unblocks the main thread, which will then exit, this thread might not execute anything further. (this only happens on the compressed Writer because stdout doesn't need to be closed)
+		err = output.Close()
+	}
+	doneChan <- err
 }
 
 func main() {
@@ -102,7 +155,7 @@ func main() {
 	var datePrefix string
 	var concurrency, min_zoom, max_zoom uint
 	var region string
-	var present bool
+	var present, compressOutput bool
 
 	flag.StringVar(&bucket, "bucket", "", "s3 bucket containing tile listing from missing-meta-tiles-write command")
 	flag.StringVar(&datePrefix, "date-prefix", "", "date prefix")
@@ -111,6 +164,7 @@ func main() {
 	flag.BoolVar(&present, "present", false, "If set, return tiles which are present rather than missing. The default (false) is to return tiles which are missing within the zoom range.")
 	flag.UintVar(&min_zoom, "min-zoom", 0, "Minimum zoom to check for missing tiles (inclusive). (default 0)")
 	flag.UintVar(&max_zoom, "max-zoom", 14, "Maximum zoom to check for missing tiles (inclusive).")
+	flag.BoolVar(&compressOutput, "compress-output", false, "If set, compress the output file with gzip.")
 
 	flag.Parse()
 
@@ -131,14 +185,20 @@ func main() {
 
 	keysChan := make(chan string, concurrency)
 	coordsChan := make(chan []coord.Coord, concurrency)
-	doneChan := make(chan interface{})
+	doneChan := make(chan error)
 
 	go listObjects(keysChan, svc, bucket, datePrefix)
 	go readKey(keysChan, coordsChan, svc, bucket, concurrency)
-	if present {
-		go printCoords(coordsChan, doneChan)
-	} else {
-		go findMissingCoords(coordsChan, doneChan, min_zoom, max_zoom)
+	if !present {
+		missingChan := make(chan []coord.Coord, concurrency)
+		go findMissingCoords(coordsChan, missingChan, min_zoom, max_zoom)
+		coordsChan = missingChan
 	}
-	<-doneChan
+	go printCoords(coordsChan, doneChan, compressOutput)
+
+	err := <-doneChan
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err.Error())
+		os.Exit(1)
+	}
 }

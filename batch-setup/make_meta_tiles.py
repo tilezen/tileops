@@ -101,7 +101,7 @@ class MissingTileFinder(object):
         print("Waiting for jobs to finish...")
         wait_for_jobs_to_finish(self.job_queue_name)
 
-    def read_metas_to_file(self, filename, present=False):
+    def read_metas_to_file(self, filename, present=False, compressed=False):
         if present:
             print("Reading existing meta tiles")
         else:
@@ -112,6 +112,7 @@ class MissingTileFinder(object):
                '-date-prefix', self.date_prefix,
                '-region', self.region,
                '-present=%r' % (bool(present),),
+               '-compressed-output=%r' % (bool(compressed),),
                stdout=filename)
 
     @contextmanager
@@ -128,7 +129,7 @@ class MissingTileFinder(object):
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
             missing_high_file = os.path.join(tmpdir, 'missing.high.txt')
 
-            self.read_metas_to_file(missing_meta_file)
+            self.read_metas_to_file(missing_meta_file, compressed=True)
 
             print("Splitting into high and low zoom lists")
             run_go('tz-batch-tiles-split-low-high',
@@ -136,7 +137,8 @@ class MissingTileFinder(object):
                    '-low-zoom-file', missing_low_file,
                    '-split-zoom', str(split_zoom),
                    '-tiles-file', missing_meta_file,
-                   '-zoom-max', str(zoom_max))
+                   '-zoom-max', str(zoom_max),
+                   '-compressed=True')
 
             # was this debugging code???
             #with open(missing_low_file, 'w') as fh:
