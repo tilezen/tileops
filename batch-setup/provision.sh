@@ -19,6 +19,9 @@ pip install -Ur /usr/local/etc/py-requirements.txt
 cd /usr/local/src
 for repo in raw_tiles tilequeue vector-datasource tileops; do
     git clone https://github.com/tilezen/$repo.git
+    if [ $repo == 'tilequeue' ]; then
+	(cd $repo && git checkout tps-updates)
+    fi
     if [ $repo != 'tileops' ]; then
         (cd $repo && python setup.py install)
     fi
