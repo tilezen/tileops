@@ -225,8 +225,8 @@ if __name__ == '__main__':
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
 
     # TODO: split zoom and zoom max should come from config.
-    split_zoom = 7
-    zoom_max = 10
+    split_zoom = 10
+    zoom_max = 7
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
@@ -265,7 +265,7 @@ if __name__ == '__main__':
                               check_metatile_exists)
 
     else:
-        with tile_finder.missing_tiles() as missing:
+        with tile_finder.missing_tiles_split(split_zoom, zoom_max) as missing:
             low_count = wc_line(missing.low_zoom_file)
             high_count = wc_line(missing.high_zoom_file)
             total = low_count + high_count
