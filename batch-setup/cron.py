@@ -460,6 +460,18 @@ if __name__ == '__main__':
     parser.add_argument('--sg-allow-this-ip', help='If creating a security '
                         'group, then allow this IP address.',
                         action='store_true')
+    parser.add_argument('--raw-tiles-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'raw_tiles software to use.')
+    parser.add_argument('--tilequeue-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'tilequeue software to use.')
+    parser.add_argument('--vector-datasource-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'vector-datasource software to use.')
+    parser.add_argument('--tileops-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'tileops software to use on the TPS instance.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -528,6 +540,10 @@ if __name__ == '__main__':
         missing_bucket=locations.missing.name,
         date_iso=planet_date.strftime('%Y-%m-%d'),
         planet_date=planet_date.strftime('%y%m%d'),
+        raw_tiles_version=args.raw_tiles_version,
+        tilequeue_version=args.tilequeue_version,
+        vector_datasource_version=args.vector_datasource_version,
+        tileops_version=args.tileops_version,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))

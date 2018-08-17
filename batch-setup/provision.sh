@@ -2,6 +2,12 @@
 
 ASSETS_BUCKET='%(assets_bucket)s'
 
+declare -A VERSIONS
+VERSIONS[raw_tiles]='%(raw_tiles_version)s'
+VERSIONS[tilequeue]='%(tilequeue_version)s'
+VERSIONS[vector-datasource]='%(vector_datasource_version)s'
+VERSIONS[tileops]='%(tileops_version)s'
+
 set +e
 yum update -y
 yum install -y git libgeos-devel python-devel postgresql96-devel gcc gcc-c++ docker
@@ -19,15 +25,12 @@ pip install -Ur /usr/local/etc/py-requirements.txt
 cd /usr/local/src
 for repo in raw_tiles tilequeue vector-datasource tileops; do
     git clone https://github.com/tilezen/$repo.git
-    if [ $repo == 'tilequeue' ]; then
-	(cd $repo && git checkout tps-updates)
-    fi
+    (cd $repo && git checkout ${VERSIONS[$repo]})
     if [ $repo != 'tileops' ]; then
         (cd $repo && python setup.py install)
     fi
     chown -R ec2-user:ec2-user $repo
 done
-(cd tileops; git checkout tps-updates)
 cat > /usr/local/etc/planet-env.sh << eof
 #!/bin/bash
 export AWS_DEFAULT_REGION='%(region)s'
@@ -41,4 +44,8 @@ export MISSING_BUCKET='%(missing_bucket)s'
 export DATE='%(date_iso)s'
 export PLANET_DATE='%(planet_date)s'
 export DATE_PREFIX='%(planet_date)s'
+
+export RAW_TILES_VERSION='%(raw_tiles_version)s'
+export TILEQUEUE_VERSION='%(tilequeue_version)s'
+export VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 eof
