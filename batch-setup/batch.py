@@ -141,6 +141,8 @@ def cmd_for_image(name, region):
             'Ref::hex_prefix',
             '-region',
             region,
+            '-key-format-type',
+            'Ref::key_format_type',
         ]
 
     else:
@@ -150,9 +152,13 @@ def cmd_for_image(name, region):
 
 
 def s3_policy(bucket, date_prefix, allow_write=False):
-    actions = ['s3:GetObject']
+    actions = ['s3:GetObject', 's3:GetObjectTagging']
     if allow_write:
-        actions.extend(['s3:PutObject', 's3:DeleteObject'])
+        actions.extend([
+            's3:PutObject',
+            's3:PutObjectTagging',
+            's3:DeleteObject',
+        ])
 
     policy = {
         "Version": "2012-10-17",
@@ -161,7 +167,12 @@ def s3_policy(bucket, date_prefix, allow_write=False):
                 "Sid": "ObjectOps",
                 "Effect": "Allow",
                 "Action": actions,
-                "Resource": "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+                "Resource": [
+                    # allow access to objects under the date prefix
+                    "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+                    # and also objects under a hash + date prefix
+                    "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
+                ],
             },
             {
                 "Sid": "BucketOps",
@@ -297,6 +308,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefix):
     elif image_name == 'missing-meta-tiles-write':
         rp.allow_s3_write('missing', buckets.missing)
         rp.allow_s3_read('meta', buckets.meta)
+        rp.allow_s3_read('RAWR', buckets.rawr)
 
     else:
         raise RuntimeError("Unknown image name %r while building job role."
@@ -346,20 +358,40 @@ def make_job_definitions(
     return job_definitions, definition_names
 
 
+def find_command_in_paths(cmd, paths):
+    for p in paths:
+        exe = os.path.join(p, cmd)
+        if os.path.isfile(exe) and os.access(exe, os.X_OK):
+            return exe
+    return None
+
+
+def find_command(cmd):
+    gopath = os.getenv('GOPATH')
+    if gopath is not None:
+        candidate_paths = [
+            os.path.join(p, 'bin') for p in gopath.split(':')]
+        result = find_command_in_paths(cmd, candidate_paths)
+        if result is not None:
+            return result
+    path = os.getenv('PATH')
+    if path is not None:
+        return find_command_in_paths(cmd, path.split(':'))
+    return None
+
+
 def run_go(cmd, *args, **kwargs):
     """
     Runs the Go executable cmd with the given args. Raises an exception if the
     command failed (return code != 0). If stdout is given as a kwarg, then
     write the command's stdout to that file.
 
-    The cmd is expected to be in $GOPATH/bin.
+    The cmd is expected to be either in $GOPATH/bin if $GOPATH is set, or in
+    $PATH.
     """
 
-    # fully qualify the path to the executable, so we're 100% certain
-    # what we're running.
-    gopath = os.environ['GOPATH']
-    exe = os.path.join(gopath, 'bin', cmd)
-    if not os.path.isfile(exe) or not os.access(exe, os.X_OK):
+    exe = find_command(cmd)
+    if exe is None:
         raise RuntimeError("Unable to find executable %r. Did you build "
                            "the Go tileops tools?" % (exe))
 
@@ -370,7 +402,6 @@ def run_go(cmd, *args, **kwargs):
     session = boto3.session.Session()
     creds = session.get_credentials()
     env = {
-        'GOPATH': gopath,
         'AWS_SESSION_TOKEN': creds.token,
         'AWS_ACCESS_KEY_ID': creds.access_key,
         'AWS_SECRET_ACCESS_KEY': creds.secret_key,

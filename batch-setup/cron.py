@@ -61,9 +61,9 @@ def wait_for_profile(iam, profile_name):
     time.sleep(10)
 
 
-def create_orchestration_profile(iam, profile_name, locations):
+def create_tps_profile(iam, profile_name, locations):
     """
-    Creates a profile suitable for use as the orchestration instance.
+    Creates a profile suitable for use as the tps instance.
     """
 
     instance_profile = iam.create_instance_profile(
@@ -133,18 +133,27 @@ def create_orchestration_profile(iam, profile_name, locations):
         ),
     )
 
+    assets_path = '/' + locations.assets.prefix + '/*'
     s3_policy = dict(
         Version='2012-10-17',
         Statement=[
             dict(
                 Effect='Allow',
                 Action=[
-                    's3:ListBucket',
                     's3:DeleteObject',
                 ],
                 Resource=[
-                    'arn:aws:s3:::' + locations.missing.name,
                     'arn:aws:s3:::' + locations.missing.name + '/*',
+                ],
+            ),
+            dict(
+                Effect='Allow',
+                Action=[
+                    's3:ListBucket',
+                ],
+                Resource=[
+                    'arn:aws:s3:::' + locations.missing.name,
+                    'arn:aws:s3:::' + locations.assets.name,
                 ],
             ),
             dict(
@@ -153,7 +162,9 @@ def create_orchestration_profile(iam, profile_name, locations):
                     's3:GetObject',
                 ],
                 Resource=[
-                    'arn:aws:s3:::' + locations.assets.name + '/*',
+                    'arn:aws:s3:::' + locations.assets.name + '/tileops/*',
+                    'arn:aws:s3:::' + locations.assets.name + assets_path,
+                    'arn:aws:s3:::' + locations.missing.name + '/*',
                 ],
             ),
         ],
@@ -236,6 +247,7 @@ def create_tile_assets_profile(iam, profile_name, locations):
         RoleName=profile_name,
     )
 
+    assets_path = locations.assets.name + '/' + locations.assets.prefix + '/*'
     policy = {
         "Version": "2012-10-17",
         "Statement": [
@@ -247,7 +259,7 @@ def create_tile_assets_profile(iam, profile_name, locations):
                     "s3:GetObject",
                     "s3:DeleteObject"
                 ],
-                "Resource": 'arn:aws:s3:::' + locations.assets.name + '/*',
+                "Resource": 'arn:aws:s3:::' + assets_path,
             },
             {
                 "Sid": "VisualEditor1",
@@ -380,7 +392,7 @@ def create_security_group_allowing_this_ip(ec2):
 
     ip_addr = requests.get('https://api.ipify.org').text
     ip = ip_address(ip_addr)
-    sg_name = 'orchestration-allow-' + str(ip).replace('.', '-')
+    sg_name = 'tps-allow-' + str(ip).replace('.', '-')
 
     # try to find existing SG called this
     sg_id = find_security_group(ec2, sg_name)
@@ -400,7 +412,7 @@ if __name__ == '__main__':
     from base64 import b64encode
 
     parser = argparse.ArgumentParser(
-        'Script to orchestrate automated tile creation.')
+        'Script to automate the tile production system.')
     parser.add_argument('date', help='Planet date, YYMMDD')
     parser.add_argument('--region', help='AWS region to use. This must be '
                         'provided if the environment variable '
@@ -423,18 +435,18 @@ if __name__ == '__main__':
     parser.add_argument('--meta-bucket', help='Override default name for '
                         'meta tiles bucket.')
     parser.add_argument('--profile-name', help='Profile name to use. Default '
-                        'is "tile-orchestration-YYMMDD" with planet date.')
+                        'is "tps-YYMMDD" with planet date.')
     parser.add_argument('--ec2-key-name', help='Provide this to set an EC2 '
                         'SSH key name. If you do not want to log into the '
                         'instance, you do not need to provide one.')
     parser.add_argument('--ec2-instance-type', help='EC2 instance type to use '
-                        'for orchestration instance.', default='t2.micro')
+                        'for tps instance.', default='t2.micro')
     parser.add_argument('--ec2-ami-image', help='EC2 AMI image ID for the '
-                        'orchestration instance. Default is to use the latest '
+                        'tps instance. Default is to use the latest '
                         'Amazon Linux HVM/EBS image.')
     parser.add_argument('--ec2-security-group', help='EC2 security group ID '
-                        'to start orchestration instance in, default is to '
-                        'use the default security group.')
+                        'to start tps instance in, default is to use the '
+                        'default security group.')
     parser.add_argument('--tile-assets-profile-name', help='Name of the '
                         'profile with read and write access to the tile '
                         'assets bucket. If one does not exist, it will be '
@@ -448,6 +460,18 @@ if __name__ == '__main__':
     parser.add_argument('--sg-allow-this-ip', help='If creating a security '
                         'group, then allow this IP address.',
                         action='store_true')
+    parser.add_argument('--raw-tiles-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'raw_tiles software to use.')
+    parser.add_argument('--tilequeue-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'tilequeue software to use.')
+    parser.add_argument('--vector-datasource-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'vector-datasource software to use.')
+    parser.add_argument('--tileops-version', default='master',
+                        help='Version (git hash, tag or branch) of the '
+                        'tileops software to use on the TPS instance.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -460,7 +484,7 @@ if __name__ == '__main__':
 
     profile_name = args.profile_name
     if profile_name is None:
-        profile_name = planet_date.strftime('tile-orchestration-%y%m%d')
+        profile_name = planet_date.strftime('tps-%y%m%d')
 
     def bucket_name(arg_name, bucket_function):
         prop_name = arg_name.lstrip('-').replace('-', '_')
@@ -478,7 +502,7 @@ if __name__ == '__main__':
     meta_bucket = bucket_name('--meta-bucket', 'meta-tiles')
     date_prefix = planet_date.strftime('%y%m%d')
     locations = Locations(
-        Bucket(assets_bucket, date_prefix),
+        Bucket(assets_bucket, 'flat-nodes-' + date_prefix),
         Bucket(rawr_bucket, date_prefix),
         Bucket(meta_bucket, date_prefix),
         Bucket(missing_bucket, date_prefix),
@@ -488,7 +512,7 @@ if __name__ == '__main__':
 
     profile = find_profile(iam, profile_name)
     if profile is None:
-        profile = create_orchestration_profile(iam, profile_name, locations)
+        profile = create_tps_profile(iam, profile_name, locations)
     assert profile is not None
 
     tile_assets_profile = find_profile(iam, args.tile_assets_profile_name)
@@ -516,6 +540,10 @@ if __name__ == '__main__':
         missing_bucket=locations.missing.name,
         date_iso=planet_date.strftime('%Y-%m-%d'),
         planet_date=planet_date.strftime('%y%m%d'),
+        raw_tiles_version=args.raw_tiles_version,
+        tilequeue_version=args.tilequeue_version,
+        vector_datasource_version=args.vector_datasource_version,
+        tileops_version=args.tileops_version,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -538,6 +566,13 @@ if __name__ == '__main__':
         # NOTE: the following parameter is just AWS's way of saying "run this
         # script at startup".
         UserData=provision_base64,
+        TagSpecifications=[dict(
+            ResourceType='instance',
+            Tags=[dict(
+                Key='tps-instance',
+                Value=planet_date.strftime('%Y-%m-%d'),
+            )],
+        )],
     )
     if args.ec2_key_name:
         run_instances_params['KeyName'] = args.ec2_key_name
@@ -552,6 +587,15 @@ if __name__ == '__main__':
     reservation_id = response['ReservationId']
     assert len(response['Instances']) == 1
     instance = response['Instances'][0]
+    instance_id = instance['InstanceId']
 
     print('reservation ID: %s' % (reservation_id,))
-    print('instance ID:    %s' % (instance['InstanceId'],))
+    print('instance ID:    %s' % (instance_id,))
+
+    print('Waiting for instance to come up...')
+    waiter = ec2.get_waiter('instance_status_ok')
+    waiter.wait(InstanceIds=[instance_id])
+
+    response = ec2.describe_instances(InstanceIds=[instance_id])
+    instance = response['Reservations'][0]['Instances'][0]
+    print('public IP:      %r' % (instance.get('PublicIpAddress'),))

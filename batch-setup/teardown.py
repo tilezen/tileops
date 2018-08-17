@@ -28,6 +28,10 @@ def delete_all_job_definitions(batch, planet_date):
 
 
 def delete_job_queue(batch, job_queue, terminate):
+    response = batch.describe_job_queues(jobQueues=[job_queue])
+    if len(response['jobQueues']) == 0:
+        return
+
     if terminate:
         # terminate any jobs which are running
         terminate_all_jobs(job_queue, 'Tearing down the stack')
@@ -64,45 +68,100 @@ def delete_job_queue(batch, job_queue, terminate):
     print("Deleting job queue %r" % (job_queue,))
     batch.delete_job_queue(jobQueue=job_queue)
 
+    # wait for queue to be deleted, otherwise it causes issues when we try to
+    # delete the compute environment, which is still referred to by the queue.
+    print("Waiting for job queue to be deleted...")
+    while True:
+        response = batch.describe_job_queues(jobQueues=[job_queue])
+        if len(response['jobQueues']) == 0:
+            break
 
-if __name__ == '__main__':
-    import argparse
-    from datetime import datetime
-    import os
-    from time import sleep
+        # wait a little bit...
+        sleep(15)
 
-    parser = argparse.ArgumentParser("Tear down a stack")
-    parser.add_argument('date', help='Planet date, YYMMDD')
-    parser.add_argument('--terminate', action='store_true', help='Terminate '
-                        'jobs, rather than waiting for them to finish.')
-    parser.add_argument('--job-queue', help='Job queue name, default '
-                        'job-queue-YYMMDD with planet date.')
-    parser.add_argument('--compute-env', help='Compute environment name, '
-                        'default compute-env-YYMMDD with planet date.')
-    parser.add_argument('--region', help='AWS region. Default taken from '
-                        'the AWS_DEFAULT_REGION environment variable.')
+    print("Deleted job queue.")
 
-    args = parser.parse_args()
-    planet_date = datetime.strptime(args.date, '%y%m%d')
-    job_queue = args.job_queue or planet_date.strftime('job-queue-%y%m%d')
-    compute_env = args.compute_env or planet_date.strftime(
-        'compute-env-%y%m%d')
-    region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 
-    if region is None:
-        import sys
-        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
-        sys.exit(1)
+def terminate_instances_by_tag(tags):
+    ec2 = boto3.client('ec2')
+    filters = []
+    for k, v in tags.iteritems():
+        filters.append(dict(
+            Name='tag:' + k,
+            Values=[v],
+        ))
+    assert filters
 
-    batch = boto3.client('batch')
+    response = ec2.describe_instances(Filters=filters)
 
-    response = batch.describe_job_queues(jobQueues=[job_queue])
-    if len(response['jobQueues']) > 0:
-        delete_job_queue(batch, job_queue, args.terminate)
+    for reservation in response['Reservations']:
+        for instance in reservation['Instances']:
+            instance_id = instance['InstanceId']
+            if instance['State']['Name'] == 'running':
+                print("Terminating instance %r" % (instance_id,))
+                ec2.terminate_instances(InstanceIds=[instance_id])
 
-    # delete the job definitions
-    delete_all_job_definitions(batch, planet_date)
 
+def delete_role(name):
+    iam = boto3.client('iam')
+
+    # first, delete any associated instance profiles
+    try:
+        iam.get_role(RoleName=name)
+    except iam.exceptions.NoSuchEntityException:
+        return
+
+    response = iam.list_instance_profiles_for_role(RoleName=name)
+    for instance_profile in response['InstanceProfiles']:
+        ipname = instance_profile['InstanceProfileName']
+        for role in instance_profile['Roles']:
+            print("Removing role %r from instance profile %r" %
+                  (role['RoleName'], ipname))
+            iam.remove_role_from_instance_profile(
+                InstanceProfileName=ipname,
+                RoleName=role['RoleName'],
+            )
+        print("Deleting instance profile %r" % (ipname,))
+        iam.delete_instance_profile(InstanceProfileName=ipname)
+
+    # next, detach all policies
+    paginator = iam.get_paginator('list_attached_role_policies')
+    for page in paginator.paginate(RoleName=name):
+        for policy in page['AttachedPolicies']:
+            print("Detaching role policy %r" % (policy['PolicyName'],))
+            iam.detach_role_policy(
+                RoleName=name,
+                PolicyArn=policy['PolicyArn'],
+            )
+
+    # next, delete inline policies
+    paginator = iam.get_paginator('list_role_policies')
+    for page in paginator.paginate(RoleName=name):
+        for policy_name in page['PolicyNames']:
+            print("Deleting inline policy %r from role %r" %
+                  (policy_name, name))
+            iam.delete_role_policy(
+                RoleName=name,
+                PolicyName=policy_name,
+            )
+
+    # finally, delete the role
+    print("Deleting role %r" % (name,))
+    iam.delete_role(RoleName=name)
+
+
+def delete_policy(name):
+    from batch_setup import find_policy
+
+    iam = boto3.client('iam')
+    policy = find_policy(iam, name)
+
+    if policy:
+        print("Deleting policy %r (arn=%r)" % (name, policy['Arn']))
+        iam.delete_policy(PolicyArn=policy['Arn'])
+
+
+def delete_compute_env(batch, compute_env):
     # disable the compute environment
     print("Disabling compute environment %r" % (compute_env,))
     batch.update_compute_environment(
@@ -133,5 +192,75 @@ if __name__ == '__main__':
     print("Deleting compute environment %r" % (compute_env,))
     batch.delete_compute_environment(computeEnvironment=compute_env)
 
-    # shutdown all database replicas
-    ensure_dbs(planet_date, 0)
+
+if __name__ == '__main__':
+    import argparse
+    from datetime import datetime
+    import os
+    from time import sleep
+
+    parser = argparse.ArgumentParser("Tear down a stack")
+    parser.add_argument('date', help='Planet date, YYMMDD')
+    parser.add_argument('--terminate', action='store_true', help='Terminate '
+                        'jobs, rather than waiting for them to finish.')
+    parser.add_argument('--job-queue', help='Job queue name, default '
+                        'job-queue-YYMMDD with planet date.')
+    parser.add_argument('--compute-env', help='Compute environment name, '
+                        'default compute-env-YYMMDD with planet date.')
+    parser.add_argument('--region', help='AWS region. Default taken from '
+                        'the AWS_DEFAULT_REGION environment variable.')
+    parser.add_argument('--leave-databases-running', action='store_true',
+                        help='Do not tear down the database replicas, leave '
+                        'them running. These can take a long time to stop and '
+                        'start, so it can be worth leaving them up if you are '
+                        'bouncing the environment.')
+
+    args = parser.parse_args()
+    planet_date = datetime.strptime(args.date, '%y%m%d')
+    job_queue = args.job_queue or planet_date.strftime('job-queue-%y%m%d')
+    compute_env = args.compute_env or planet_date.strftime(
+        'compute-env-%y%m%d')
+    region = args.region or os.environ.get('AWS_DEFAULT_REGION')
+
+    if region is None:
+        import sys
+        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        sys.exit(1)
+
+    batch = boto3.client('batch')
+
+    delete_job_queue(batch, job_queue, args.terminate)
+
+    # delete the job definitions - TODO: doesn't look like these _can_ be
+    # deleted, only disabled, and just clutters up the output.
+    #delete_all_job_definitions(batch, planet_date)
+
+    # delete the compute environment
+    response = batch.describe_compute_environments(
+        computeEnvironments=[compute_env])
+    if len(response['computeEnvironments']) > 0:
+        delete_compute_env(batch, compute_env)
+
+    if not args.leave_databases_running:
+        # shutdown all database replicas
+        ensure_dbs(planet_date, 0)
+
+    # terminate any running instances - if the osm2pgsql instance is running,
+    # then that, also the TPS "orchestration" instance.
+    terminate_instances_by_tag(
+        {'osm2pgsql-import': planet_date.strftime('%Y-%m-%d')})
+    terminate_instances_by_tag(
+        {'tps-instance': planet_date.strftime('%Y-%m-%d')})
+
+    # drop all the roles that we've created for this environment
+    for prefix in ('tps-', 'BatchMetaBatch', 'BatchMetaLowZoomBatch',
+                   'BatchMissingMetaTilesWrite', 'BatchRawrBatch'):
+        delete_role(prefix + planet_date.strftime('%y%m%d'))
+
+    # drop policies created for this environment
+    for prefix in ('AllowReadAccessTometaBucket',
+                   'AllowReadAccessToRAWRBucket',
+                   'AllowWriteAccessTometaBucket',
+                   'AllowWriteAccessTomissingBucket',
+                   'AllowWriteAccessToRAWRBucket'):
+        delete_policy(prefix + planet_date.strftime('%y%m%d'))

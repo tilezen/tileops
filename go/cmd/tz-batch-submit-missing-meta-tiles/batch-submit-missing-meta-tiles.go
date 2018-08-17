@@ -19,33 +19,40 @@ type batchCfg struct {
 	jobQueue, jobDefinition string
 }
 
-func genPrefixes(prefixesChan chan<- string) {
-	totalPrefixes := 16 * 16 * 16
-	for i := 0; i < totalPrefixes; i++ {
+func genPrefixes(prefixesChan chan<- string, limit uint) {
+	var totalPrefixes uint = 16 * 16 * 16
+
+	numPrefixesToSend := totalPrefixes
+	if limit > 0 && limit < totalPrefixes {
+		numPrefixesToSend = limit
+	}
+
+	for i := uint(0); i < numPrefixesToSend; i++ {
 		hexValue := fmt.Sprintf("%03x", i)
 		prefixesChan <- hexValue
 	}
 	close(prefixesChan)
 }
 
-func newParams(s3Cfg *s3Cfg, prefix string) map[string]*string {
+func newParams(s3Cfg *s3Cfg, prefix, keyFormatType string) map[string]*string {
 	return map[string]*string{
 		"dest_bucket":      &s3Cfg.destBucket,
 		"dest_date_prefix": &s3Cfg.destDatePrefix,
 		"src_bucket":       &s3Cfg.srcBucket,
 		"src_date_prefix":  &s3Cfg.srcDatePrefix,
 		"hex_prefix":       &prefix,
+		"key_format_type":  &keyFormatType,
 	}
 }
 
-func submitJobs(prefixesChan <-chan string, doneChan chan<- interface{}, s3Cfg *s3Cfg, batchCfg *batchCfg, svc *batch.Batch, concurrency uint) {
+func submitJobs(prefixesChan <-chan string, doneChan chan<- interface{}, s3Cfg *s3Cfg, batchCfg *batchCfg, svc *batch.Batch, concurrency uint, keyFormatType string) {
 	var wg sync.WaitGroup
 	wg.Add(int(concurrency))
 	for i := uint(0); i < concurrency; i++ {
 		go func() {
 			defer wg.Done()
 			for prefix := range prefixesChan {
-				params := newParams(s3Cfg, prefix)
+				params := newParams(s3Cfg, prefix, keyFormatType)
 				jobName := fmt.Sprintf("missing-meta-tiles-%s", prefix)
 				_, err := svc.SubmitJob(&batch.SubmitJobInput{
 					JobDefinition: &batchCfg.jobDefinition,
@@ -71,7 +78,8 @@ func main() {
 		srcBucket,
 		srcDatePrefix,
 		region string
-	var concurrency uint
+	var concurrency, limit uint
+	var keyFormatType string
 
 	// TODO is this better to put in a yaml file?
 	flag.StringVar(&jobQueue, "job-queue", "", "batch job queue")
@@ -82,6 +90,8 @@ func main() {
 	flag.StringVar(&srcDatePrefix, "src-date-prefix", "", "source date prefix")
 	flag.UintVar(&concurrency, "concurrency", 2, "number of goroutines submitting jobs")
 	flag.StringVar(&region, "region", "us-east-1", "region")
+	flag.StringVar(&keyFormatType, "key-format-type", "prefix-hash", "S3 key format type, either 'prefix-hash' or 'hash-prefix'.")
+	flag.UintVar(&limit, "limit", 0, "Debugging option: Send only the first N jobs. The default 0 means send all jobs.")
 
 	flag.Parse()
 
@@ -109,8 +119,8 @@ func main() {
 	prefixesChan := make(chan string, concurrency)
 	doneChan := make(chan interface{})
 
-	go genPrefixes(prefixesChan)
-	go submitJobs(prefixesChan, doneChan, &s3Cfg, &batchCfg, svc, concurrency)
+	go genPrefixes(prefixesChan, limit)
+	go submitJobs(prefixesChan, doneChan, &s3Cfg, &batchCfg, svc, concurrency, keyFormatType)
 	<-doneChan
 
 }
