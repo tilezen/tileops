@@ -14,5 +14,10 @@ phases:
   build:
     commands:
       # set planet date to latest planet, if it wasn't already set by the environment.
-      - if [ -z "$PLANET_DATE" ]; then PLANET_DATE=`curl -Is https://planet.openstreetmap.org/planet/planet-latest.osm.bz2 | grep "Location: " | sed 's,.*/planet-\([0-9]\{6\}\).osm.bz2\r$,\1,;t ok;q 1;:ok'`; fi
+      - >
+          if [ -z "$PLANET_DATE" ]; then
+            PLANET_DATE=`curl -Is https://planet.openstreetmap.org/planet/planet-latest.osm.bz2 |
+                         grep "Location: " |
+                         sed 's,.*/planet-\([0-9]\{6\}\).osm.bz2\r$,\1,;t ok;q 1;:ok'`;
+          fi
       - python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX $PLANET_DATE
