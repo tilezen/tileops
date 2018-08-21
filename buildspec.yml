@@ -10,6 +10,7 @@ env:
 phases:
   install:
     commands:
+      - pip install pipenv
       - pipenv install --system --deploy
   build:
     commands:
