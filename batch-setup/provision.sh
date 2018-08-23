@@ -50,11 +50,27 @@ export TILEQUEUE_VERSION='%(tilequeue_version)s'
 export VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 eof
 
+mkdir /tmp/awslogs
+curl 'https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py' -o /tmp/awslogs/awslogs-agent-setup.py
+chmod +x /tmp/awslogs/awslogs-agent-setup.py
+cat > /tmp/awslogs/awslogs.conf <<EOF
+[general]
+state_file = /var/awslogs/state/agent-state
+
+[/var/log/cloud-init-output.log]
+file = /var/log/cloud-init-output.log
+log_group_name = /snapzen/tps
+log_stream_name = {instance_id}
+datetime_format = %%b %%d %%H:%%M:%%S
+EOF
+/tmp/awslogs/awslogs-agent-setup.py -n -r us-east-2 -c /tmp/awslogs/awslogs.conf
+
 cat > /usr/local/bin/run.sh <<EOF
 #!/bin/bash
 
 . /usr/local/venv/bin/activate
 . /usr/local/etc/planet-env.sh
+export PATH=/usr/local/bin:$PATH
 
 set -e
 

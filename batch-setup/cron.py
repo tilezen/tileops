@@ -170,10 +170,29 @@ def create_tps_profile(iam, profile_name, locations):
         ],
     )
 
+    cw_policy = dict(
+        Version='2012-10-17',
+        Statement=[
+            dict(
+                Effect='Allow',
+                Action=[
+                    'logs:CreateLogGroup',
+                    'logs:CreateLogStream',
+                    'logs:PutLogEvents',
+                    'logs:DescribeLogStreams',
+                ],
+                Resource=[
+                    'arn:aws:logs:*:*:*',
+                ]
+            ),
+        ],
+    )
+
     for name, policy in [
             ('AllowEC2', ec2_policy),
             ('AllowIAM', iam_policy),
             ('AllowS3', s3_policy),
+            ('WriteLogs', cw_policy),
             ]:
         iam.put_role_policy(
             RoleName=profile_name,
