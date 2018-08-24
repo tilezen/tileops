@@ -1,7 +1,7 @@
 FROM python:2
 
 RUN apt-get -y update \
- && apt-get -y install libgeos-dev \
+ && apt-get -y install libgeos-dev libboost-python-dev \
  && rm -rf /var/lib/apt/lists/*
 
 COPY raw_tiles /usr/src/raw_tiles

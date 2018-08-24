@@ -19,7 +19,7 @@ process:
   query-config: /usr/src/vector-datasource/queries.yaml
   template-path: /usr/src/vector-datasource/queries
   reload-templates: false
-  formats: [mvt]
+  formats: [coanacatl]
   yaml:
     # TODO should be using the callable config here instead
     type: parse
