@@ -491,6 +491,8 @@ if __name__ == '__main__':
     parser.add_argument('--tileops-version', default='master',
                         help='Version (git hash, tag or branch) of the '
                         'tileops software to use on the TPS instance.')
+    parser.add_argument('--metatile-size', default=8, type=int,
+                        help='Metatile size (in 256px tiles).')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -563,6 +565,7 @@ if __name__ == '__main__':
         tilequeue_version=args.tilequeue_version,
         vector_datasource_version=args.vector_datasource_version,
         tileops_version=args.tileops_version,
+        metatile_size=args.metatile_size,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))

@@ -48,6 +48,8 @@ export DATE_PREFIX='%(planet_date)s'
 export RAW_TILES_VERSION='%(raw_tiles_version)s'
 export TILEQUEUE_VERSION='%(tilequeue_version)s'
 export VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
+
+export METATILE_SIZE='%(metatile_size)s'
 eof
 
 mkdir /tmp/awslogs
@@ -81,7 +83,7 @@ python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas 10 
 python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix \
        \$RAWR_BUCKET \$DATE_PREFIX \$MISSING_BUCKET
 python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$DATE_PREFIX --missing-bucket \$MISSING_BUCKET \
-       --key-format-type hash-prefix \$RAWR_BUCKET \$META_BUCKET \$DATE_PREFIX
+       --key-format-type hash-prefix --metatile_size \$METATILE_SIZE \$RAWR_BUCKET \$META_BUCKET \$DATE_PREFIX
 EOF
 chmod +x /usr/local/bin/run.sh
 
