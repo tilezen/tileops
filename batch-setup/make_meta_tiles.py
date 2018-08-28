@@ -10,6 +10,7 @@ import boto3
 import os
 import shutil
 import tempfile
+from tilequeue.tile import metatile_zoom_from_size
 
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
@@ -22,12 +23,13 @@ class MissingTileFinder(object):
     """
 
     def __init__(self, missing_bucket, tile_bucket, date_prefix, region,
-                 key_format_type, config):
+                 key_format_type, config, max_zoom):
         self.missing_bucket = missing_bucket
         self.tile_bucket = tile_bucket
         self.date_prefix = date_prefix
         self.region = region
         self.key_format_type = key_format_type
+        self.max_zoom = max_zoom
 
         assert self.missing_bucket
         assert self.tile_bucket
@@ -96,6 +98,7 @@ class MissingTileFinder(object):
             '-src-date-prefix', self.date_prefix,
             '-region', self.region,
             '-key-format-type', self.key_format_type,
+            '-max-zoom', self.max_zoom,
         )
 
         print("Waiting for jobs to finish...")
@@ -216,6 +219,8 @@ if __name__ == '__main__':
                         help="Key format type, either 'prefix-hash' or "
                         "'hash-prefix', controls whether the S3 key is "
                         "prefixed with the date or hash first.")
+    parser.add_argument('--metatile-size', default=8, type=int,
+                        help='Metatile size (in 256px tiles).')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -234,9 +239,10 @@ if __name__ == '__main__':
         print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
         sys.exit(1)
 
+    metatile_max_zoom = 16 - metatile_zoom_from_size(args.metatile_size)
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, region,
-        args.key_format_type, args.config)
+        args.key_format_type, args.config, metatile_max_zoom)
 
     for retry_number in xrange(0, args.retries):
         with tile_finder.missing_tiles_split(split_zoom, zoom_max) as missing:
