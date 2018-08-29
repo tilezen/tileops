@@ -6,6 +6,26 @@ import osm2pgsql
 import requests
 
 
+def assert_no_snapshot(planet_date):
+    """
+    Exit with a helpful message is the snapshot already exists - we don't want
+    to repeat all that work of importing!
+    """
+
+    import boto3
+    import sys
+
+    snapshot_id = planet_date.strftime('postgis-prod-%Y%m%d')
+    rds = boto3.client('rds')
+    if database.does_snapshot_exist(rds, snapshot_id):
+        print(
+            "A snapshot with ID %r already exists, suggesting that this "
+            "import has already completed. If you are sure that you want "
+            "to re-run this import in its entirety, please delete that "
+            "snapshot first." % (snapshot_id))
+        sys.exit(0)
+
+
 parser = argparse.ArgumentParser(
     description='Automated Tilezen database import')
 parser.add_argument('--date', help='Date of the data (i.e: OSM planet file) '
@@ -46,6 +66,9 @@ elif args.find_ip_address == 'meta':
 else:
     assert 0, '--find-ip-address <ipify|meta>'
 
+
+# if there's a snapshot already, then exit.
+assert_no_snapshot(planet_date)
 
 osm2pgsql.ensure_import(
     planet_date, db, getattr(args, 'iam-instance-profile'), args.bucket,
