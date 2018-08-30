@@ -98,7 +98,7 @@ class MissingTileFinder(object):
             '-src-date-prefix', self.date_prefix,
             '-region', self.region,
             '-key-format-type', self.key_format_type,
-            '-max-zoom', self.max_zoom,
+            '-max-zoom', str(self.max_zoom),
         )
 
         print("Waiting for jobs to finish...")
