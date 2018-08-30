@@ -26,4 +26,4 @@ phases:
                          grep "Location: " |
                          sed 's,.*/planet-\([0-9]\{6\}\).osm.bz2\r$,\1,;t ok;q 1;:ok'`;
           fi
-      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION $PLANET_DATE
+      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium $PLANET_DATE
