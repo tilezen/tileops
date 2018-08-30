@@ -98,7 +98,6 @@ class MissingTileFinder(object):
             '-src-date-prefix', self.date_prefix,
             '-region', self.region,
             '-key-format-type', self.key_format_type,
-            '-max-zoom', str(self.max_zoom),
         )
 
         print("Waiting for jobs to finish...")
@@ -116,6 +115,7 @@ class MissingTileFinder(object):
                '-region', self.region,
                '-present=%r' % (bool(present),),
                '-compress-output=%r' % (bool(compress),),
+               '-max-zoom', str(self.max_zoom),
                stdout=filename)
 
     @contextmanager
