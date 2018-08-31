@@ -505,6 +505,10 @@ if __name__ == '__main__':
                         'tileops software to use on the TPS instance.')
     parser.add_argument('--metatile-size', default=8, type=int,
                         help='Metatile size (in 256px tiles).')
+    parser.add_argument('--meta-date-prefix', help='Meta tile bucket '
+                        'date prefix, defaults to planet date. You can '
+                        'also set the environment variable '
+                        'META_DATE_PREFIX.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -546,6 +550,9 @@ if __name__ == '__main__':
         Bucket(meta_bucket, date_prefix),
         Bucket(missing_bucket, date_prefix),
     )
+    meta_date_prefix = (args.meta_date_prefix or
+                        os.environ.get('META_DATE_PREFIX') or
+                        date_prefix)
 
     iam = boto3.client('iam')
 
@@ -584,6 +591,7 @@ if __name__ == '__main__':
         vector_datasource_version=args.vector_datasource_version,
         tileops_version=args.tileops_version,
         metatile_size=args.metatile_size,
+        meta_date_prefix=meta_date_prefix,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
