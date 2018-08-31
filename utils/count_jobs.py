@@ -33,22 +33,33 @@ def count_jobs(batch, job_queue):
     return "%6d TOTAL (%s)" % (total, message)
 
 
+def log_msg(msg):
+    now = datetime.datetime.now()
+    print("[%s] %s" % (now.strftime("%Y-%m-%d %H:%M:%S"), msg))
+
+
 parser = argparse.ArgumentParser(description="""
 Count the jobs in each status in the job queue. This gives you the true count
 of all the jobs, rather than the "1000+" that gets shown in the Batch console.
 """)
 parser.add_argument("date", help="Date prefix to use, YYMMDD.")
+parser.add_argument("--interval", type=int, default=300, help="Number of "
+                    "seconds between updates.")
 args = parser.parse_args()
 
 job_queue = 'job-queue-%s' % (args.date,)
 batch = boto3.client('batch')
 
-interval = 60 * 5
+interval = args.interval
 next_time = time.time()
 while True:
-    now = datetime.datetime.now()
     msg = count_jobs(batch, job_queue)
-    print("[%s] %s" % (now.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    log_msg(msg)
 
     next_time += interval
+    while next_time <= time.time():
+        now = datetime.datetime.now()
+        log_msg("Count took too long, skipping update.")
+        next_time += interval
+
     time.sleep(next_time - time.time())

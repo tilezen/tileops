@@ -34,15 +34,19 @@ if log_stream is None:
 last_time = None
 while True:
     response = logs.get_log_events(
-        logGroupName=log_group, logStreamName=log_stream, limit=150,
+        logGroupName=log_group, logStreamName=log_stream, limit=200,
         startFromHead=False)
 
+    max_ingest_time = None
     for event in response['events']:
         ingest_time = event['ingestionTime']
         # any integer is greater than None, so we don't need to check for
-        # last_time is None
-        if ingest_time > last_time:
+        # last_time / max_ingest_time is None
+        if ingest_time > last_time and ingest_time >= max_ingest_time:
             print(event['message'])
-            last_time = ingest_time
+        if ingest_time > max_ingest_time:
+            max_ingest_time = ingest_time
+    if max_ingest_time > last_time:
+        last_time = max_ingest_time
 
     time.sleep(args.interval)
