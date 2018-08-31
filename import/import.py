@@ -52,6 +52,9 @@ if args.date is None:
 else:
     planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
 
+# if there's a snapshot already, then exit.
+assert_no_snapshot(planet_date)
+
 # NOTE: getattr usage here is to work around the bug in argparse where it
 # doesn't replace - with _ when setting positional argument attribute names.
 # it works ok with optional arguments, though.
@@ -66,9 +69,6 @@ elif args.find_ip_address == 'meta':
 else:
     assert 0, '--find-ip-address <ipify|meta>'
 
-
-# if there's a snapshot already, then exit.
-assert_no_snapshot(planet_date)
 
 osm2pgsql.ensure_import(
     planet_date, db, getattr(args, 'iam-instance-profile'), args.bucket,

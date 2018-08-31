@@ -424,6 +424,18 @@ def create_security_group_allowing_this_ip(ec2):
     return sg_id
 
 
+def is_power_of_two(x):
+    """
+    Returns true if x is a power of two, false otherwise.
+    """
+
+    from math import log
+    if x <= 0:
+        return False
+    log2 = int(log(x, 2))
+    return x == 2 ** log2
+
+
 if __name__ == '__main__':
     from datetime import datetime
     import argparse
@@ -502,6 +514,12 @@ if __name__ == '__main__':
         import sys
         print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
         sys.exit(1)
+
+    # checking that metatile size has a valid value, and it's in a sensible
+    # range
+    assert is_power_of_two(args.metatile_size)
+    assert args.metatile_size > 0
+    assert args.metatile_size < 100
 
     profile_name = args.profile_name
     if profile_name is None:

@@ -98,7 +98,6 @@ class MissingTileFinder(object):
             '-src-date-prefix', self.date_prefix,
             '-region', self.region,
             '-key-format-type', self.key_format_type,
-            '-max-zoom', self.max_zoom,
         )
 
         print("Waiting for jobs to finish...")
@@ -116,6 +115,7 @@ class MissingTileFinder(object):
                '-region', self.region,
                '-present=%r' % (bool(present),),
                '-compress-output=%r' % (bool(compress),),
+               '-max-zoom', str(self.max_zoom),
                stdout=filename)
 
     @contextmanager
@@ -239,6 +239,9 @@ if __name__ == '__main__':
         print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
         sys.exit(1)
 
+    # check that metatile_size is within a sensible range
+    assert args.metatile_size > 0
+    assert args.metatile_size < 100
     metatile_max_zoom = 16 - metatile_zoom_from_size(args.metatile_size)
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, region,

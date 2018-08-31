@@ -38,7 +38,7 @@ def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
 
     finder = MissingTileFinder(
         missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
-        config)
+        config, zoom)
 
     with finder.present_tiles() as present_file:
         with open(present_file) as fh:
