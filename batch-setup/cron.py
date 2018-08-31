@@ -512,9 +512,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
-    meta_date_prefix = (args.meta_date_prefix or
-                        os.environ.get('META_DATE_PREFIX') or
-                        planet_date)
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
@@ -553,6 +550,9 @@ if __name__ == '__main__':
         Bucket(meta_bucket, date_prefix),
         Bucket(missing_bucket, date_prefix),
     )
+    meta_date_prefix = (args.meta_date_prefix or
+                        os.environ.get('META_DATE_PREFIX') or
+                        date_prefix)
 
     iam = boto3.client('iam')
 
