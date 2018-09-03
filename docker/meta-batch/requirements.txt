@@ -27,4 +27,4 @@ zope.dottedname==4.2
 edtf==2.6.0
 mapbox-vector-tile==1.2.0
 boto3==1.7.10
-git+https://github.com/tilezen/coanacatl@v0.2.0#egg=coanacatl
+git+https://github.com/tilezen/coanacatl@v0.3.0#egg=coanacatl
