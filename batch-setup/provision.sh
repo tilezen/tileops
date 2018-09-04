@@ -82,8 +82,8 @@ set -x
 
 python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --date \$DATE \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
        \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD
-python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas 10 \$PLANET_DATE --missing-bucket \$MISSING_BUCKET \$RAWR_BUCKET \
-       \$META_BUCKET \$DB_PASSWORD
+python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas 10 \$PLANET_DATE --missing-bucket \$MISSING_BUCKET \
+       --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \$DB_PASSWORD
 python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix \
        \$RAWR_BUCKET \$DATE_PREFIX \$MISSING_BUCKET
 python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$META_DATE_PREFIX --missing-bucket \$MISSING_BUCKET \
