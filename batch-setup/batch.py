@@ -495,6 +495,11 @@ def terminate_all_jobs(job_queue, reason):
                 jobStatus=status,
                 nextToken=next_token,
             )
-        print("Terminating %d %r jobs" % (len(job_ids), status))
-        for job_id in job_ids:
-            batch.terminate_job(jobId=job_id, reason=reason)
+        if status in ('SUBMITTED', 'PENDING', 'RUNNABLE'):
+            print("Cancelling %d %r jobs" % (len(job_ids), status))
+            for job_id in job_ids:
+                batch.cancel_job(jobId=job_id, reason=reason)
+        else:
+            print("Terminating %d %r jobs" % (len(job_ids), status))
+            for job_id in job_ids:
+                batch.terminate_job(jobId=job_id, reason=reason)
