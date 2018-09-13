@@ -22,18 +22,20 @@ class MissingTileFinder(object):
     navigate them.
     """
 
-    def __init__(self, missing_bucket, tile_bucket, date_prefix, region,
-                 key_format_type, config, max_zoom):
+    def __init__(self, missing_bucket, tile_bucket, src_date_prefix,
+                 dst_date_prefix, region, key_format_type, config, max_zoom):
         self.missing_bucket = missing_bucket
         self.tile_bucket = tile_bucket
-        self.date_prefix = date_prefix
+        self.src_date_prefix = src_date_prefix
+        self.dst_date_prefix = dst_date_prefix
         self.region = region
         self.key_format_type = key_format_type
         self.max_zoom = max_zoom
 
         assert self.missing_bucket
         assert self.tile_bucket
-        assert self.date_prefix
+        assert self.src_date_prefix
+        assert self.dst_date_prefix
         assert self.region
         assert self.key_format_type is not None
 
@@ -52,7 +54,7 @@ class MissingTileFinder(object):
         paginator = self.s3.get_paginator('list_objects_v2')
         page_iter = paginator.paginate(
             Bucket=self.missing_bucket,
-            Prefix=self.date_prefix,
+            Prefix=self.dst_date_prefix,
         )
 
         print("Listing logs to delete.")
@@ -93,9 +95,9 @@ class MissingTileFinder(object):
             '-job-queue', self.job_queue_name,
             '-job-definition', self.job_definition,
             '-dest-bucket', self.missing_bucket,
-            '-dest-date-prefix', self.date_prefix,
+            '-dest-date-prefix', self.dst_date_prefix,
             '-src-bucket', self.tile_bucket,
-            '-src-date-prefix', self.date_prefix,
+            '-src-date-prefix', self.src_date_prefix,
             '-region', self.region,
             '-key-format-type', self.key_format_type,
         )
@@ -111,7 +113,7 @@ class MissingTileFinder(object):
 
         run_go('tz-missing-meta-tiles-read',
                '-bucket', self.missing_bucket,
-               '-date-prefix', self.date_prefix,
+               '-date-prefix', self.dst_date_prefix,
                '-region', self.region,
                '-present=%r' % (bool(present),),
                '-compress-output=%r' % (bool(compress),),
@@ -227,6 +229,7 @@ if __name__ == '__main__':
     buckets = Buckets(args.rawr_bucket, args.meta_bucket,
                       args.missing_bucket or args.meta_bucket)
     date_prefix = args.date_prefix or planet_date.strftime('%y%m%d')
+    missing_bucket_date_prefix = planet_date.strftime('%y%m%d')
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
 
     # TODO: split zoom and zoom max should come from config.
@@ -244,8 +247,8 @@ if __name__ == '__main__':
     assert args.metatile_size < 100
     metatile_max_zoom = 16 - metatile_zoom_from_size(args.metatile_size)
     tile_finder = MissingTileFinder(
-        buckets.missing, buckets.meta, date_prefix, region,
-        args.key_format_type, args.config, metatile_max_zoom)
+        buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
+        region, args.key_format_type, args.config, metatile_max_zoom)
 
     for retry_number in xrange(0, args.retries):
         with tile_finder.missing_tiles_split(split_zoom, zoom_max) as missing:
