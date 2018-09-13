@@ -216,7 +216,7 @@ def kebab_to_camel(name):
     return "".join(map(lambda s: s.capitalize(), name.split('-')))
 
 
-def ensure_job_role_arn(iam, planet_date, name, buckets, date_prefix):
+def ensure_job_role_arn(iam, planet_date, name, buckets, date_prefixes):
     role_name = kebab_to_camel(
         "batch-%s-%s" % (name, planet_date.strftime("%y%m%d")))
 
@@ -230,7 +230,7 @@ def ensure_job_role_arn(iam, planet_date, name, buckets, date_prefix):
             raise
 
     if arn is None:
-        arn = create_role(iam, name, role_name, buckets, date_prefix)
+        arn = create_role(iam, name, role_name, buckets, date_prefixes)
 
     return arn
 
@@ -256,7 +256,7 @@ ASSUME_ROLE_POLICY = dict(
 Buckets = namedtuple('Buckets', 'rawr meta missing')
 
 
-def create_role(iam, image_name, role_name, buckets, date_prefix):
+def create_role(iam, image_name, role_name, buckets, date_prefixes):
 
     """
     Create a role with the given role_name for the image in the planet_date
@@ -266,49 +266,48 @@ def create_role(iam, image_name, role_name, buckets, date_prefix):
     role = iam.create_role(
         RoleName=role_name,
         AssumeRolePolicyDocument=json.dumps(ASSUME_ROLE_POLICY),
-        Description='Role to perform %s batch jobs in %s environment.' %
-        (image_name, date_prefix))
+        Description='Role to perform %s batch jobs in %s/%s environment.' %
+        (image_name, date_prefixes.rawr, date_prefixes.meta))
 
     class RolePolicies(object):
-        def __init__(self, iam, date_prefix, role_name):
+        def __init__(self, iam, role_name):
             self.iam = iam
-            self.date_prefix = date_prefix
             self.role_name = role_name
 
-        def allow_s3_read(self, name, bucket):
+        def allow_s3_read(self, name, bucket, date_prefix):
             policy_arn = find_or_create_s3_policy(
-                self.iam, name, bucket, self.date_prefix, allow_write=False)
+                self.iam, name, bucket, date_prefix, allow_write=False)
             self.iam.attach_role_policy(
                 RoleName=self.role_name,
                 PolicyArn=policy_arn,
             )
 
-        def allow_s3_write(self, name, bucket):
+        def allow_s3_write(self, name, bucket, date_prefix):
             policy_arn = find_or_create_s3_policy(
-                self.iam, name, bucket, self.date_prefix, allow_write=True)
+                self.iam, name, bucket, date_prefix, allow_write=True)
             self.iam.attach_role_policy(
                 RoleName=self.role_name,
                 PolicyArn=policy_arn,
             )
 
-    rp = RolePolicies(iam, date_prefix, role_name)
+    rp = RolePolicies(iam, role_name)
 
     if image_name == 'rawr-batch':
-        rp.allow_s3_write('RAWR', buckets.rawr)
+        rp.allow_s3_write('RAWR', buckets.rawr, date_prefixes.rawr)
         # note: needs DB access, but that's handled through a security group
 
     elif image_name == 'meta-batch':
-        rp.allow_s3_read('RAWR', buckets.rawr)
-        rp.allow_s3_write('meta', buckets.meta)
+        rp.allow_s3_read('RAWR', buckets.rawr, date_prefixes.rawr)
+        rp.allow_s3_write('meta', buckets.meta, date_prefixes.meta)
 
     elif image_name == 'meta-low-zoom-batch':
-        rp.allow_s3_write('meta', buckets.meta)
+        rp.allow_s3_write('meta', buckets.meta, date_prefixes.meta)
         # note: needs DB access, but that's handled through a security group
 
     elif image_name == 'missing-meta-tiles-write':
-        rp.allow_s3_write('missing', buckets.missing)
-        rp.allow_s3_read('meta', buckets.meta)
-        rp.allow_s3_read('RAWR', buckets.rawr)
+        rp.allow_s3_write('missing', buckets.missing, date_prefixes.rawr)
+        rp.allow_s3_read('meta', buckets.meta, date_prefixes.meta)
+        rp.allow_s3_read('RAWR', buckets.rawr, date_prefixes.rawr)
 
     else:
         raise RuntimeError("Unknown image name %r while building job role."
@@ -328,7 +327,7 @@ def make_job_definitions(
     definition_names = {}
     for name, image in repo_urls.items():
         job_role_arn = ensure_job_role_arn(
-            iam, planet_date, name, buckets, date_prefixes.rawr)
+            iam, planet_date, name, buckets, date_prefixes)
         memory_value = memory[name] if isinstance(memory, dict) else memory
         vcpus_value = vcpus[name] if isinstance(vcpus, dict) else vcpus
         retry_value = retry_attempts[name] \
