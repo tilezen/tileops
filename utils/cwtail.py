@@ -1,7 +1,6 @@
 import boto3
 import time
 import argparse
-from datetime import datetime
 
 
 parser = argparse.ArgumentParser(
@@ -15,20 +14,20 @@ parser.add_argument('--stream', help='Name of log stream. Optional, defaults '
                     'to the stream in the group with the most recent events')
 parser.add_argument('--interval', default=60, type=int,
                     help='Interval between log updates.')
-parser.add_argument('--date', help='Planet date. If --stream is not supplied, '
-                    'look for a TPS instance tagged with this date. YYMMDD.')
+parser.add_argument('--run-id', help='Unique run identifier. If --stream is '
+                    'not supplied, look for a TPS instance tagged with this '
+                    'ID.')
 args = parser.parse_args()
 
 logs = boto3.client('logs')
 log_group = args.group
 log_stream = args.stream
 
-if log_stream is None and args.date:
-    planet_date = datetime.strptime(args.date, '%y%m%d')
-    long_date = planet_date.strftime('%Y-%m-%d')
+if log_stream is None and args.run_id:
+    run_id = args.run_id
     ec2 = boto3.client('ec2')
     response = ec2.describe_instances(
-        Filters=[dict(Name='tag:tps-instance', Values=[long_date])],
+        Filters=[dict(Name='tag:tps-instance', Values=[run_id])],
     )
     assert response['Reservations']
     assert response['Reservations'][0]['Instances']

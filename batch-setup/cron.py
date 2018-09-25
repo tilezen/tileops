@@ -509,6 +509,8 @@ if __name__ == '__main__':
                         'date prefix, defaults to planet date. You can '
                         'also set the environment variable '
                         'META_DATE_PREFIX.')
+    parser.add_argument('--run-id', help='Distinctive run ID to give to '
+                        'this build. Defaults to planet date YYMMDD.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -525,9 +527,8 @@ if __name__ == '__main__':
     assert args.metatile_size > 0
     assert args.metatile_size < 100
 
-    profile_name = args.profile_name
-    if profile_name is None:
-        profile_name = planet_date.strftime('tps-%y%m%d')
+    run_id = args.run_id or planet_date.strftime('%y%m%d')
+    profile_name = args.profile_name or ('tps-'  + run_id)
 
     def bucket_name(arg_name, bucket_function):
         prop_name = arg_name.lstrip('-').replace('-', '_')
@@ -543,16 +544,15 @@ if __name__ == '__main__':
     rawr_bucket = bucket_name('--rawr-bucket', 'rawr-tiles')
     missing_bucket = bucket_name('--missing-bucket', 'missing-tiles')
     meta_bucket = bucket_name('--meta-bucket', 'meta-tiles')
-    date_prefix = planet_date.strftime('%y%m%d')
     locations = Locations(
-        Bucket(assets_bucket, 'flat-nodes-' + date_prefix),
-        Bucket(rawr_bucket, date_prefix),
-        Bucket(meta_bucket, date_prefix),
-        Bucket(missing_bucket, date_prefix),
+        Bucket(assets_bucket, 'flat-nodes-' + run_id),
+        Bucket(rawr_bucket, run_id),
+        Bucket(meta_bucket, run_id),
+        Bucket(missing_bucket, run_id),
     )
     meta_date_prefix = (args.meta_date_prefix or
                         os.environ.get('META_DATE_PREFIX') or
-                        date_prefix)
+                        run_id)
 
     iam = boto3.client('iam')
 
@@ -569,9 +569,8 @@ if __name__ == '__main__':
 
     smgr = boto3.client('secretsmanager')
     smgr_name = (args.db_password_secret_name or
-                 planet_date.strftime('TilesDatabasePassword%y%m%d'))
-    smgr_description = planet_date.strftime(
-        'Tiles database password for %Y-%m-%d import')
+                 ('TilesDatabasePassword' + run_id))
+    smgr_description = 'Tiles database password for %s import' % (run_id,)
     db_password = generate_or_update_password(
         smgr, args.db_password, smgr_name, smgr_description)
 
@@ -585,7 +584,7 @@ if __name__ == '__main__':
         meta_bucket=locations.meta.name,
         missing_bucket=locations.missing.name,
         date_iso=planet_date.strftime('%Y-%m-%d'),
-        planet_date=planet_date.strftime('%y%m%d'),
+        run_id=run_id,
         raw_tiles_version=args.raw_tiles_version,
         tilequeue_version=args.tilequeue_version,
         vector_datasource_version=args.vector_datasource_version,
@@ -618,7 +617,7 @@ if __name__ == '__main__':
             ResourceType='instance',
             Tags=[dict(
                 Key='tps-instance',
-                Value=planet_date.strftime('%Y-%m-%d'),
+                Value=run_id,
             )],
         )],
     )

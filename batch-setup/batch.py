@@ -189,7 +189,7 @@ def s3_policy(bucket, date_prefix, allow_write=False):
 def find_or_create_s3_policy(iam, bucket_name, bucket, date_prefix,
                              allow_write=False):
     """
-    Finds a policy in the planet_date environment to access the given bucket,
+    Finds a policy in the run's environment to access the given bucket,
     or creates one.
 
     Returns the policy's ARN.
@@ -216,9 +216,9 @@ def kebab_to_camel(name):
     return "".join(map(lambda s: s.capitalize(), name.split('-')))
 
 
-def ensure_job_role_arn(iam, planet_date, name, buckets, date_prefixes):
+def ensure_job_role_arn(iam, run_id, name, buckets, date_prefixes):
     role_name = kebab_to_camel(
-        "batch-%s-%s" % (name, planet_date.strftime("%y%m%d")))
+        "batch-%s-%s" % (name, run_id))
 
     arn = None
     try:
@@ -259,7 +259,7 @@ Buckets = namedtuple('Buckets', 'rawr meta missing')
 def create_role(iam, image_name, role_name, buckets, date_prefixes):
 
     """
-    Create a role with the given role_name for the image in the planet_date
+    Create a role with the given role_name for the image in the run's
     environment.
     """
 
@@ -317,7 +317,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefixes):
 
 
 def make_job_definitions(
-        iam, planet_date, region, repo_urls, databases, buckets,
+        iam, run_id, region, repo_urls, databases, buckets,
         db_password, memory, vcpus, retry_attempts, date_prefixes,
         check_metatile_exists):
 
@@ -327,13 +327,13 @@ def make_job_definitions(
     definition_names = {}
     for name, image in repo_urls.items():
         job_role_arn = ensure_job_role_arn(
-            iam, planet_date, name, buckets, date_prefixes)
+            iam, run_id, name, buckets, date_prefixes)
         memory_value = memory[name] if isinstance(memory, dict) else memory
         vcpus_value = vcpus[name] if isinstance(vcpus, dict) else vcpus
         retry_value = retry_attempts[name] \
             if isinstance(retry_attempts, dict) else retry_attempts
 
-        job_name = "%s-%s" % (name, planet_date.strftime("%y%m%d"))
+        job_name = "%s-%s" % (name, run_id)
         definition = {
             'name': job_name,
             'job-role-arn': job_role_arn,
@@ -424,7 +424,7 @@ def run_go(cmd, *args, **kwargs):
             stdout.close()
 
 
-def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
+def create_job_definitions(run_id, region, repo_urls, databases, buckets,
                            db_password, memory=1024, vcpus=1,
                            retry_attempts=5, date_prefix=None,
                            meta_date_prefix=None, check_metatile_exists=False):
@@ -437,7 +437,7 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
     not they will be passed directly to AWS.
 
     If date_prefix is left as None (the default) it will be generated from
-    planet_date automatically.
+    run_id automatically.
 
     If meta_date_prefix is specified, a different date prefix will be used in
     the metatile and missing buckets.
@@ -448,7 +448,7 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
     iam = boto3.client('iam')
 
     if date_prefix is None:
-        date_prefix = planet_date.strftime('%Y%m%d')
+        date_prefix = run_id
 
     if meta_date_prefix is None:
         meta_date_prefix = date_prefix
@@ -456,7 +456,7 @@ def create_job_definitions(planet_date, region, repo_urls, databases, buckets,
     date_prefixes = Buckets(date_prefix, meta_date_prefix, meta_date_prefix)
 
     job_definitions, definition_names = make_job_definitions(
-        iam, planet_date, region, repo_urls, databases, buckets,
+        iam, run_id, region, repo_urls, databases, buckets,
         db_password, memory, vcpus, retry_attempts, date_prefixes,
         check_metatile_exists)
 

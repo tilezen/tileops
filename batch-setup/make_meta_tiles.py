@@ -1,9 +1,9 @@
 from batch import Buckets
 from batch import run_go
-from datetime import datetime
 import yaml
 from make_rawr_tiles import wait_for_jobs_to_finish
 from make_rawr_tiles import wc_line
+from run_id import assert_run_id_format
 from contextlib import contextmanager
 from collections import namedtuple
 import boto3
@@ -197,9 +197,9 @@ if __name__ == '__main__':
     parser.add_argument('meta_bucket', help="Bucket with meta tiles in")
     parser.add_argument('--missing-bucket', help="Bucket to store missing "
                         "tile logs in")
-    parser.add_argument('date', help='Planet date, YYMMDD')
+    parser.add_argument('run_id', help='Unique identifier for run.')
     parser.add_argument('--date-prefix', help="Date prefix in bucket, "
-                        "defaults to planet date.")
+                        "defaults to run ID.")
     parser.add_argument('--retries', default=5, type=int, help="Number "
                         "of times to retry enqueueing the remaining jobs "
                         "before giving up.")
@@ -225,11 +225,11 @@ if __name__ == '__main__':
                         help='Metatile size (in 256px tiles).')
 
     args = parser.parse_args()
-    planet_date = datetime.strptime(args.date, '%y%m%d')
+    assert_run_id_format(args.run_id)
     buckets = Buckets(args.rawr_bucket, args.meta_bucket,
                       args.missing_bucket or args.meta_bucket)
-    date_prefix = args.date_prefix or planet_date.strftime('%y%m%d')
-    missing_bucket_date_prefix = planet_date.strftime('%y%m%d')
+    date_prefix = args.date_prefix or args.run_id
+    missing_bucket_date_prefix = args.run_id
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
 
     # TODO: split zoom and zoom max should come from config.

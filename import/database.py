@@ -62,8 +62,8 @@ def ensure_vpc_security_group(security_group_name):
     return sg_id
 
 
-def ensure_database(planet_date, master_user_password):
-    instance_id = planet_date.strftime('postgis-prod-%Y%m%d')
+def ensure_database(run_id, master_user_password):
+    instance_id = 'postgis-prod-' + run_id
 
     rds = boto3.client('rds')
 
@@ -126,8 +126,8 @@ def ensure_database(planet_date, master_user_password):
     )
 
 
-def take_snapshot_and_shutdown(db, planet_date):
-    instance_id = planet_date.strftime('postgis-prod-%Y%m%d')
+def take_snapshot_and_shutdown(db, run_id):
+    instance_id = 'postgis-prod-' + run_id
 
     rds = boto3.client('rds')
 

@@ -6,6 +6,8 @@ env:
     BUCKET_PREFIX: ""
     # this is set to the latest available planet if you don't override it in the GUI!
     PLANET_DATE: ""
+    # set this to a unique identifier for the run. Defaults to the planet date.
+    RUN_ID: ""
     # versions (git hashes, branches or tags) of software to install on the TPS instance. note that the version of cron.py that's run is determined by the uploaded version of the codebuild package, not this environment variable!
     RAW_TILES_VERSION: master
     TILEQUEUE_VERSION: master
@@ -26,4 +28,9 @@ phases:
                          grep "Location: " |
                          sed 's,.*/planet-\([0-9]\{6\}\).osm.bz2\r$,\1,;t ok;q 1;:ok'`;
           fi
-      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium $PLANET_DATE
+      # set a run ID to the planet date, if it wasn't already overridden in the environment.
+      - >
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID="$PLANET_DATE";
+          fi
+      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium --run-id $RUN_ID $PLANET_DATE
