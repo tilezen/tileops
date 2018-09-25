@@ -27,9 +27,8 @@ def ensure_repo(ecr, repo_name):
     return repo_uri
 
 
-def ensure_ecr(planet_date):
+def ensure_ecr(run_id):
     ecr = boto3.client('ecr')
-    date_suffix = planet_date.strftime('%y%m%d')
 
     repo_names = (
         'meta-low-zoom-batch',
@@ -40,7 +39,7 @@ def ensure_ecr(planet_date):
 
     repo_uris = {}
     for repo_name in repo_names:
-        full_name = 'tilezen/%s-%s' % (repo_name, date_suffix)
+        full_name = 'tilezen/%s-%s' % (repo_name, run_id)
         repo_uris[repo_name] = ensure_repo(ecr, full_name)
 
     return repo_uris

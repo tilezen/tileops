@@ -5,13 +5,13 @@ from botocore.exceptions import ClientError
 from contextlib import contextmanager
 
 
-def flat_nodes_key(planet_date):
-    return planet_date.strftime('flat-nodes-%y%m%d/flat.nodes')
+def flat_nodes_key(run_id):
+    return 'flat-nodes-%s/flat.nodes' % (run_id,)
 
 
-def does_flat_nodes_file_exist(bucket, planet_date):
+def does_flat_nodes_file_exist(bucket, run_id):
     s3 = boto3.client('s3')
-    key = flat_nodes_key(planet_date)
+    key = flat_nodes_key(run_id)
 
     try:
         response = s3.head_object(Bucket=bucket, Key=key)
@@ -24,9 +24,9 @@ def does_flat_nodes_file_exist(bucket, planet_date):
             raise
 
 
-def reset_flat_nodes_file(bucket, planet_date):
+def reset_flat_nodes_file(bucket, run_id):
     s3 = boto3.client('s3')
-    key = flat_nodes_key(planet_date)
+    key = flat_nodes_key(run_id)
     s3.delete_object(Bucket=bucket, Key=key)
 
 
@@ -60,9 +60,9 @@ def reset_database(instance, db):
     )
 
 
-def login_key(planet_date):
+def login_key(run_id):
     try:
-        filename = planet_date.strftime("import-private-key-%Y%m%d.pem")
+        filename = "import-private-key-%s.pem" % (run_id,)
         with open(filename) as fh:
             return RSAKey.from_private_key(fh)
 
@@ -70,7 +70,7 @@ def login_key(planet_date):
         return None
 
 
-def create_login_key(ec2, planet_date, key_pair_name):
+def create_login_key(ec2, run_id, key_pair_name):
     try:
         ec2.delete_key_pair(KeyName=key_pair_name)
     except ClientError as e:
@@ -81,18 +81,17 @@ def create_login_key(ec2, planet_date, key_pair_name):
     pem = response['KeyMaterial']
     key = RSAKey.from_private_key(StringIO(pem))
 
-    filename = planet_date.strftime("import-private-key-%Y%m%d.pem")
+    filename = "import-private-key-%s.pem" % (run_id,)
     with open(filename, 'w') as fh:
         key.write_private_key(fh)
 
     return key
 
 
-def find_import_instance(ec2, planet_date):
-    date_tag = planet_date.strftime('%Y-%m-%d')
+def find_import_instance(ec2, run_id):
     result = ec2.describe_instances(
         Filters=[
-            dict(Name='tag:osm2pgsql-import', Values=[date_tag]),
+            dict(Name='tag:osm2pgsql-import', Values=[run_id]),
             dict(Name='instance-state-name', Values=['pending', 'running']),
         ],
     )
@@ -164,7 +163,7 @@ def create_security_group_allowing_this_ip(ec2, ip_addr):
 
 
 def start_osm2pgsql_instance(
-        ec2, planet_date, key_pair_name, security_group_id,
+        ec2, run_id, key_pair_name, security_group_id,
         iam_instance_profile, ip_addr):
     # find latest official ubuntu server image
     response = ec2.describe_images(
@@ -182,7 +181,6 @@ def start_osm2pgsql_instance(
 
     allow_this_ip = create_security_group_allowing_this_ip(ec2, ip_addr)
 
-    date_tag = planet_date.strftime('%Y-%m-%d')
     response = ec2.run_instances(
         BlockDeviceMappings=[dict(
             DeviceName='/dev/sda1',
@@ -206,7 +204,7 @@ def start_osm2pgsql_instance(
             dict(
                 ResourceType='instance',
                 Tags=[
-                    dict(Key='osm2pgsql-import', Value=date_tag),
+                    dict(Key='osm2pgsql-import', Value=run_id),
                 ],
             ),
         ],
@@ -364,7 +362,7 @@ class Instance(object):
                 time.sleep(15)
 
 
-def shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr):
+def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
     import os
 
     # shut down the instance and delete the key-pair
@@ -374,9 +372,9 @@ def shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr):
     waiter.wait(InstanceIds=[import_instance_id])
     print "Instance terminated."
 
-    filename = planet_date.strftime("import-private-key-%Y%m%d.pem")
+    filename = "import-private-key-%s.pem" % (run_id,)
     os.remove(filename)
-    key_pair_name = planet_date.strftime('osm2pgsql-import-%Y%m%d')
+    key_pair_name = 'osm2pgsql-import-' + run_id
     ec2.delete_key_pair(KeyName=key_pair_name)
 
     # note: this won't actually create - this security group is already in use
@@ -393,15 +391,15 @@ def shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr):
 
 
 def ensure_import(
-        planet_date, db, iam_instance_profile, bucket, aws_region,
+        run_id, planet_date, db, iam_instance_profile, bucket, aws_region,
         ip_addr, vector_datasource_version='master'):
     ec2 = boto3.client('ec2')
 
     # is there already an import instance running?
-    import_instance_id = find_import_instance(ec2, planet_date)
+    import_instance_id = find_import_instance(ec2, run_id)
 
     if import_instance_id:
-        key = login_key(planet_date)
+        key = login_key(run_id)
         if not key:
             raise RuntimeError(
                 "Import instance is running, but we don't have the key to "
@@ -423,13 +421,13 @@ def ensure_import(
 
         # no import instance running - either it was never started, or we just
         # stopped it and cleaned up. so we'll need to start one!
-        key_pair_name = planet_date.strftime('osm2pgsql-import-%Y%m%d')
-        key = login_key(planet_date)
+        key_pair_name = 'osm2pgsql-import-' + run_id
+        key = login_key(run_id)
         if not key:
-            key = create_login_key(ec2, planet_date, key_pair_name)
+            key = create_login_key(ec2, run_id, key_pair_name)
 
         import_instance_id = start_osm2pgsql_instance(
-            ec2, planet_date, key_pair_name, db.security_group_id,
+            ec2, run_id, key_pair_name, db.security_group_id,
             iam_instance_profile, ip_addr)
 
         # instance started!
@@ -440,7 +438,7 @@ def ensure_import(
         # if the instance was already started, then we assume that the import
         # might be part-way through, and we just want to skip to running the
         # script on the remote host.
-        flat_nodes_exists = does_flat_nodes_file_exist(bucket, planet_date)
+        flat_nodes_exists = does_flat_nodes_file_exist(bucket, run_id)
         database_full = does_database_have_data(instance, db)
         finished = flat_nodes_exists and database_full
 
@@ -451,7 +449,7 @@ def ensure_import(
             if flat_nodes_exists:
                 # flat nodes, but no database data => reset by deleting the
                 # flat nodes file
-                reset_flat_nodes_file(bucket, planet_date)
+                reset_flat_nodes_file(bucket, run_id)
 
             if database_full:
                 # database, but no flat nodes => reset by clearing the database
@@ -469,9 +467,9 @@ def ensure_import(
             db_name=db.dbname,
             db_user=db.user,
             flat_nodes_bucket=bucket,
-            flat_nodes_key=flat_nodes_key(planet_date),
+            flat_nodes_key=flat_nodes_key(run_id),
             aws_region=aws_region,
             vector_datasource_version=vector_datasource_version,
         )
 
-    shutdown_and_cleanup(ec2, import_instance_id, planet_date, ip_addr)
+    shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr)

@@ -4,9 +4,9 @@ from batch import terminate_all_jobs
 import boto3
 
 
-def delete_all_job_definitions(batch, planet_date):
+def delete_all_job_definitions(batch, run_id):
     job_definitions = []
-    date_suffix = planet_date.strftime('-%y%m%d')
+    suffix = '-' + run_id
 
     print("Listing job definitions to delete.")
     next_token = None
@@ -15,7 +15,7 @@ def delete_all_job_definitions(batch, planet_date):
         for jobdef in response.get('jobDefinitions', []):
             name = jobdef['jobDefinitionName']
             revision = jobdef['revision']
-            if name.endswith(date_suffix):
+            if name.endswith(suffix):
                 job_definitions.append('%s:%d' % (name, revision))
         next_token = response.get('nextToken')
         if next_token is None:
@@ -195,18 +195,18 @@ def delete_compute_env(batch, compute_env):
 
 if __name__ == '__main__':
     import argparse
-    from datetime import datetime
     import os
     from time import sleep
+    from run_id import assert_run_id_format
 
     parser = argparse.ArgumentParser("Tear down a stack")
-    parser.add_argument('date', help='Planet date, YYMMDD')
+    parser.add_argument('run_id', help='Unique run identifier.')
     parser.add_argument('--terminate', action='store_true', help='Terminate '
                         'jobs, rather than waiting for them to finish.')
     parser.add_argument('--job-queue', help='Job queue name, default '
-                        'job-queue-YYMMDD with planet date.')
+                        'job-queue-XXXX with run ID.')
     parser.add_argument('--compute-env', help='Compute environment name, '
-                        'default compute-env-YYMMDD with planet date.')
+                        'default compute-env-XXXX with run ID.')
     parser.add_argument('--region', help='AWS region. Default taken from '
                         'the AWS_DEFAULT_REGION environment variable.')
     parser.add_argument('--leave-databases-running', action='store_true',
@@ -216,10 +216,10 @@ if __name__ == '__main__':
                         'bouncing the environment.')
 
     args = parser.parse_args()
-    planet_date = datetime.strptime(args.date, '%y%m%d')
-    job_queue = args.job_queue or planet_date.strftime('job-queue-%y%m%d')
-    compute_env = args.compute_env or planet_date.strftime(
-        'compute-env-%y%m%d')
+    run_id = args.run_id
+    assert_run_id_format(run_id)
+    job_queue = args.job_queue or ('job-queue-' + run_id)
+    compute_env = args.compute_env or ('compute-env-' + run_id)
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 
     if region is None:
@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # delete the job definitions - TODO: doesn't look like these _can_ be
     # deleted, only disabled, and just clutters up the output.
-    #delete_all_job_definitions(batch, planet_date)
+    #delete_all_job_definitions(batch, run_id)
 
     # delete the compute environment
     response = batch.describe_compute_environments(
@@ -243,19 +243,19 @@ if __name__ == '__main__':
 
     if not args.leave_databases_running:
         # shutdown all database replicas
-        ensure_dbs(planet_date, 0)
+        ensure_dbs(run_id, 0)
 
     # terminate any running instances - if the osm2pgsql instance is running,
     # then that, also the TPS "orchestration" instance.
     terminate_instances_by_tag(
-        {'osm2pgsql-import': planet_date.strftime('%Y-%m-%d')})
+        {'osm2pgsql-import': run_id})
     terminate_instances_by_tag(
-        {'tps-instance': planet_date.strftime('%Y-%m-%d')})
+        {'tps-instance': run_id})
 
     # drop all the roles that we've created for this environment
     for prefix in ('tps-', 'BatchMetaBatch', 'BatchMetaLowZoomBatch',
                    'BatchMissingMetaTilesWrite', 'BatchRawrBatch'):
-        delete_role(prefix + planet_date.strftime('%y%m%d'))
+        delete_role(prefix + run_id)
 
     # drop policies created for this environment
     for prefix in ('AllowReadAccessTometaBucket',
@@ -263,4 +263,4 @@ if __name__ == '__main__':
                    'AllowWriteAccessTometaBucket',
                    'AllowWriteAccessTomissingBucket',
                    'AllowWriteAccessToRAWRBucket'):
-        delete_policy(prefix + planet_date.strftime('%y%m%d'))
+        delete_policy(prefix + run_id)

@@ -4,7 +4,7 @@ from batch_setup import batch_setup
 from batch import Buckets
 from batch import create_job_definitions
 from docker import build_and_upload_images
-from datetime import datetime
+from run_id import assert_run_id_format
 import argparse
 import os
 import yaml
@@ -21,7 +21,8 @@ def vpc_of_sg(sg_id):
 
 
 parser = argparse.ArgumentParser('Script to kick off tile creation.')
-parser.add_argument('date', help='Planet date, YYMMDD')
+parser.add_argument('run_id', help='Unique run identifier, used to name '
+                    'resources and log out in the batch runs.')
 parser.add_argument('--num-db-replicas', default=1, type=int,
                     help='Number of database replicas to create.')
 parser.add_argument('rawr_bucket', help='S3 bucket for RAWR tiles')
@@ -30,11 +31,8 @@ parser.add_argument('db_password', help='Database password')
 parser.add_argument('--missing-bucket', default=None,
                     help='Bucket for missing meta tile lists. Defaults to the '
                     'meta bucket.')
-parser.add_argument('--run-id', help='Identifying string to log out in the '
-                    'batch runs.')
 parser.add_argument('--date-prefix', default=None, help='Date prefix to use '
-                    'in S3 buckets. By default, generated from the planet '
-                    'date.')
+                    'in S3 buckets. By default, generated from the run ID.')
 parser.add_argument('--region', help='AWS region. If not provided, then the '
                     'AWS_DEFAULT_REGION environment variable must be set.')
 parser.add_argument('--meta-date-prefix', help='Optional different date '
@@ -44,9 +42,9 @@ parser.add_argument('--check-metatile-exists', default=False,
                     'metatile exists first before processing the batch job.')
 
 args = parser.parse_args()
-planet_date = datetime.strptime(args.date, '%y%m%d')
-run_id = args.run_id or planet_date.strftime('%Y%m%d')
-date_prefix = args.date_prefix or planet_date.strftime('%y%m%d')
+run_id = args.run_id
+assert_run_id_format(run_id)
+date_prefix = args.date_prefix or run_id
 
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
@@ -54,14 +52,14 @@ if region is None:
     print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
     sys.exit(1)
 
-repo_uris = ensure_ecr(planet_date)
+repo_uris = ensure_ecr(run_id)
 
 # start databases => db_sg & database hostnames
-db_sg_id, database_ids = ensure_dbs(planet_date, args.num_db_replicas)
+db_sg_id, database_ids = ensure_dbs(run_id, args.num_db_replicas)
 
 # create batch environment and job queue
-compute_env_name = planet_date.strftime('compute-env-%y%m%d')
-job_queue_name = planet_date.strftime('job-queue-%y%m%d')
+compute_env_name = 'compute-env-' + run_id
+job_queue_name = 'job-queue-' + run_id
 vpc_id = vpc_of_sg(db_sg_id)
 
 batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name)
@@ -92,7 +90,7 @@ retry_attempts['rawr-batch'] = 10
 
 # create job definitions (references databases, batch setup)
 job_def_names = create_job_definitions(
-    planet_date, region, repo_uris, database_ids, buckets, args.db_password,
+    run_id, region, repo_uris, database_ids, buckets, args.db_password,
     memory=memory, vcpus=vcpus, retry_attempts=retry_attempts,
     date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix,
     check_metatile_exists=args.check_metatile_exists)
@@ -111,7 +109,7 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
             'run_id': run_id,
             'retry-attempts': retry_attempts[name],
             'queue-zoom': 7,
-            'job-name-prefix': name + planet_date.strftime('-%y%m%d'),
+            'job-name-prefix': ('%s-%s') % (name, run_id),
             'vcpus': vcpus,
             'job-queue': job_queue_name,
             'job-definition': job_def_names[name],

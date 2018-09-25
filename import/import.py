@@ -6,7 +6,7 @@ import osm2pgsql
 import requests
 
 
-def assert_no_snapshot(planet_date):
+def assert_no_snapshot(run_id):
     """
     Exit with a helpful message is the snapshot already exists - we don't want
     to repeat all that work of importing!
@@ -15,7 +15,7 @@ def assert_no_snapshot(planet_date):
     import boto3
     import sys
 
-    snapshot_id = planet_date.strftime('postgis-prod-%Y%m%d')
+    snapshot_id = 'postgis-prod-' + run_id
     rds = boto3.client('rds')
     if database.does_snapshot_exist(rds, snapshot_id):
         print(
@@ -24,6 +24,19 @@ def assert_no_snapshot(planet_date):
             "to re-run this import in its entirety, please delete that "
             "snapshot first." % (snapshot_id))
         sys.exit(0)
+
+
+def assert_run_id_format(run_id):
+    import re
+    import sys
+
+    m = re.match('^[a-zA-Z0-9]([a-zA-Z0-9_-]*[a-zA-Z0-9])?$', run_id)
+    if m is None:
+        print("Run ID %r is badly formed. Run IDs may only contain ASCII "
+              "letters and numbers, dashes and underscores. Dashes or "
+              "underscores may not appear at the beginning or end of the "
+              "run ID." % (run_id,))
+        sys.exit(1)
 
 
 parser = argparse.ArgumentParser(
@@ -43,6 +56,8 @@ parser.add_argument('--vector-datasource-version', default='master',
                     'setting up the database.')
 parser.add_argument('--find-ip-address',
                     help='how to find ip address, <ipify|meta>')
+parser.add_argument('--run-id', help='Distinctive run ID to give to '
+                    'this build. Defaults to planet date YYMMDD.')
 
 args = parser.parse_args()
 
@@ -52,13 +67,16 @@ if args.date is None:
 else:
     planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
 
+run_id = args.run_id or planet_date.strftime('%y%m%d')
+assert_run_id_format(run_id)
+
 # if there's a snapshot already, then exit.
-assert_no_snapshot(planet_date)
+assert_no_snapshot(run_id)
 
 # NOTE: getattr usage here is to work around the bug in argparse where it
 # doesn't replace - with _ when setting positional argument attribute names.
 # it works ok with optional arguments, though.
-db = database.ensure_database(planet_date, getattr(args, 'database-password'))
+db = database.ensure_database(run_id, getattr(args, 'database-password'))
 
 ip_addr = None
 if args.find_ip_address == 'ipify':
@@ -71,7 +89,7 @@ else:
 
 
 osm2pgsql.ensure_import(
-    planet_date, db, getattr(args, 'iam-instance-profile'), args.bucket,
-    args.region, ip_addr, args.vector_datasource_version)
+    run_id, planet_date, db, getattr(args, 'iam-instance-profile'),
+    args.bucket, args.region, ip_addr, args.vector_datasource_version)
 
-database.take_snapshot_and_shutdown(db, planet_date)
+database.take_snapshot_and_shutdown(db, run_id)

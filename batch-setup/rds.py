@@ -102,8 +102,8 @@ def set_databases_security_group(rds, security_group_id, databases):
         )
 
 
-def ensure_dbs(planet_date, num_instances):
-    snapshot_id = planet_date.strftime('postgis-prod-%Y%m%d')
+def ensure_dbs(run_id, num_instances):
+    snapshot_id = 'postgis-prod-' + run_id
     rds = boto3.client('rds')
 
     if not does_snapshot_exist(rds, snapshot_id):
