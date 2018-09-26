@@ -79,7 +79,7 @@ set -e
 # echo commands before executing them (useful to check that the arguments are correct)
 set -x
 
-python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --date \$DATE --run-id \$RUN_ID \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
+python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --date \$DATE --run-id \$RUN_ID --vector-datasource-version \$VECTOR_DATASOURCE_VERSION \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
        \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD
 python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas 10 \$RUN_ID --missing-bucket \$MISSING_BUCKET \
        --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \$DB_PASSWORD

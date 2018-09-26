@@ -8,9 +8,9 @@ usage() {
     cat <<EOF >&2
 Usage: $0 -b BUCKET [-p PREFIX] [-t TREEISH] [-k KEY]
   BUCKET:  The S3 bucket to upload to.
-  PREFIX:  The prefix within the bucket, if any.
+  PREFIX:  The prefix within the bucket, if any. Note: this adds a trailing /, unless PREFIX is empty.
   TREEISH: Git description of the version to upload, defaults to HEAD.
-  KEY:     The key to use under the bucket and prefix. Defaults to "tileops-$DESC.zip" where DESC is built from the git version.
+  KEY:     The key to use under the bucket and prefix. Defaults to "tileops-\$DESC.zip" where DESC is built from the git version.
 EOF
     exit 1
 }
