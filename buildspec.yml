@@ -18,6 +18,8 @@ phases:
   install:
     commands:
       - pip install pipenv
+      # temporary hack around https://github.com/pypa/pipenv/issues/2924
+      - pipenv run pip install pip==18.0
       - pipenv sync
   build:
     commands:
