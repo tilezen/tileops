@@ -8,3 +8,4 @@ name = "pypi"
 
 boto3 = "*"
 paramiko = "*"
+requests = "*"
