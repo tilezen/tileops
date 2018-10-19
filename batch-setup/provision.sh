@@ -65,7 +65,7 @@ log_group_name = /tilezen/tps
 log_stream_name = {instance_id}
 datetime_format = %%b %%d %%H:%%M:%%S
 EOF
-/tmp/awslogs/awslogs-agent-setup.py -n -r us-east-2 -c /tmp/awslogs/awslogs.conf
+/tmp/awslogs/awslogs-agent-setup.py -n -r "%(region)s" -c /tmp/awslogs/awslogs.conf
 
 cat > /usr/local/bin/run.sh <<EOF
 #!/bin/bash
