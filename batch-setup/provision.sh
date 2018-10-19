@@ -61,7 +61,7 @@ state_file = /var/awslogs/state/agent-state
 
 [/var/log/cloud-init-output.log]
 file = /var/log/cloud-init-output.log
-log_group_name = /snapzen/tps
+log_group_name = /tilezen/tps
 log_stream_name = {instance_id}
 datetime_format = %%b %%d %%H:%%M:%%S
 EOF
