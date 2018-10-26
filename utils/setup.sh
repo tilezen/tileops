@@ -75,7 +75,10 @@ go get github.com/aws/aws-sdk-go
 go get gopkg.in/yaml.v2
 
 title "Building static Go tools"
-(cd "${GOPATH}/src/tzops/go" && go install ./...)
+# NOTE: CGO_ENABLED=0 is provided to _not_ link the system C library. this is
+# so that we don't get mismatches between most desktop Linux environments
+# (which use GNU libc) and Alpine Linux (which uses MUSL).
+(cd "${GOPATH}/src/tzops/go" && CGO_ENABLED=0 go install ./...)
 
 title "Uploading Go tools to S3"
 for i in tz-batch-create-job-definition \
