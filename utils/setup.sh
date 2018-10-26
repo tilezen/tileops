@@ -58,6 +58,10 @@ function remove_tmp_dir {
 }
 trap remove_tmp_dir EXIT
 
+function error_exit {
+    exit 1
+}
+
 export GOPATH="${TMPDIR}"
 export GOOS=linux
 export GOARCH=amd64
@@ -65,20 +69,20 @@ export AWS_DEFAULT_REGION="${REGION}"
 
 title "Creating S3 buckets"
 for func in tile-assets rawr-tiles missing-tiles meta-tiles; do
-   aws s3 mb "s3://${PREFIX}-${func}-${REGION}" --region "${REGION}"
+   aws s3 mb "s3://${PREFIX}-${func}-${REGION}" --region "${REGION}" || error_exit
 done
 
 title "Installing Go dependencies"
 mkdir -p "${TMPDIR}/src/tzops"
-ln -sT "${DIR}/../go" "${TMPDIR}/src/tzops/go"
-go get github.com/aws/aws-sdk-go
-go get gopkg.in/yaml.v2
+ln -sT "${DIR}/../go" "${TMPDIR}/src/tzops/go" || error_exit
+go get github.com/aws/aws-sdk-go || error_exit
+go get gopkg.in/yaml.v2 || error_exit
 
 title "Building static Go tools"
 # NOTE: CGO_ENABLED=0 is provided to _not_ link the system C library. this is
 # so that we don't get mismatches between most desktop Linux environments
 # (which use GNU libc) and Alpine Linux (which uses MUSL).
-(cd "${GOPATH}/src/tzops/go" && CGO_ENABLED=0 go install ./...)
+(cd "${GOPATH}/src/tzops/go" && CGO_ENABLED=0 go install ./...) || error_exit
 
 title "Uploading Go tools to S3"
 for i in tz-batch-create-job-definition \
@@ -93,7 +97,7 @@ for i in tz-batch-create-job-definition \
         bin="${GOPATH}/bin/${GOOS}_${GOARCH}/${i}"
     fi
 
-    aws s3 cp "${bin}" "s3://${PREFIX}-tile-assets-${REGION}/tileops/go/${i}"
+    aws s3 cp "${bin}" "s3://${PREFIX}-tile-assets-${REGION}/tileops/go/${i}" || error_exit
 done
 
 title "Uploading requirements.txt to S3"
@@ -129,7 +133,7 @@ ujson==1.35
 wsgiref==0.1.2
 zope.dottedname==4.2
 EOF
-aws s3 cp "${TMPDIR}/bootstrap-requirements.txt" "s3://${PREFIX}-tile-assets-${REGION}/tileops/py/bootstrap-requirements.txt"
+aws s3 cp "${TMPDIR}/bootstrap-requirements.txt" "s3://${PREFIX}-tile-assets-${REGION}/tileops/py/bootstrap-requirements.txt" || error_exit
 
 ACCOUNT_ID=`aws sts get-caller-identity --output text --query 'Account'`
 if [ -z "$ACCOUNT_ID" ]; then
@@ -138,7 +142,7 @@ if [ -z "$ACCOUNT_ID" ]; then
 fi
 
 title "Checking or Codebuild TPS policy"
-aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/AllowCodebuildToStartTPS" >/dev/null 2>&1
+aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/AllowCodebuildToStartTPS" >/dev/null 2>&1 || error_exit
 if [ $? -ne 0 ]; then
     title "Creating a policy for Codebuild TPS"
     read -r -d '' POLICY <<EOF
@@ -200,7 +204,7 @@ if [ $? -ne 0 ]; then
   ]
 }
 EOF
-    aws iam create-policy --policy-name AllowCodebuildToStartTPS --policy-document "${POLICY}"
+    aws iam create-policy --policy-name AllowCodebuildToStartTPS --policy-document "${POLICY}" || error_exit
 fi
 
 title "Checking for ECS container role"
@@ -221,16 +225,16 @@ if [ $? -ne 0 ]; then
   ]
 }
 EOF
-    aws iam create-role --role-name "ecsInstanceRole" --assume-role-policy-document "${POLICY}"
+    aws iam create-role --role-name "ecsInstanceRole" --assume-role-policy-document "${POLICY}" || error_exit
 
     # attach built-in policy to allow container service
-    aws iam attach-role-policy --role-name "ecsInstanceRole" --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+    aws iam attach-role-policy --role-name "ecsInstanceRole" --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role" || error_exit
 fi
 
 title "Checking for ECS instance profile"
 aws iam get-instance-profile --instance-profile-name "ecsInstanceRole" >/dev/null 2>&1
 if [ $? -ne 0 ]; then
     title "Creating ECS instance profile"
-    aws iam create-instance-profile --instance-profile-name "ecsInstanceRole"
-    aws iam add-role-to-instance-profile --instance-profile-name "ecsInstanceRole" --role-name "ecsInstanceRole"
+    aws iam create-instance-profile --instance-profile-name "ecsInstanceRole" || error_exit
+    aws iam add-role-to-instance-profile --instance-profile-name "ecsInstanceRole" --role-name "ecsInstanceRole" || error_exit
 fi
