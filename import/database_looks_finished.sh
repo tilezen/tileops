@@ -7,7 +7,10 @@ export PGDATABASE='%(db_name)s'
 export PGUSER='%(db_user)s'
 
 # we expect to have data in all these tables, if we ran to completion.
-read -d ' ' ALL_TABLES=<<EOF
+# NOTE: planet_osm_nodes is _intentionally_ missing, since we run with
+# the external flat nodes file for node storage, so the table ought to
+# be empty.
+read -d ' ' ALL_TABLES <<EOF
 buffered_land
 land_polygons
 ne_10m_admin_0_boundary_lines_land
@@ -35,7 +38,6 @@ ne_50m_ocean
 ne_50m_playas
 ne_50m_urban_areas
 planet_osm_line
-planet_osm_nodes
 planet_osm_point
 planet_osm_polygon
 planet_osm_rels
