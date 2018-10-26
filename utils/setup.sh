@@ -131,9 +131,17 @@ zope.dottedname==4.2
 EOF
 aws s3 cp "${TMPDIR}/bootstrap-requirements.txt" "s3://${PREFIX}-tile-assets-${REGION}/tileops/py/bootstrap-requirements.txt"
 
-title "Creating a role for Codebuild TPS"
 ACCOUNT_ID=`aws sts get-caller-identity --output text --query 'Account'`
-read -r -d '' POLICY <<EOF
+if [ -z "$ACCOUNT_ID" ]; then
+    echo "Failed to get an account ID from AWS." >&2
+    exit 1
+fi
+
+title "Checking or Codebuild TPS policy"
+aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/AllowCodebuildToStartTPS" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    title "Creating a policy for Codebuild TPS"
+    read -r -d '' POLICY <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -192,4 +200,37 @@ read -r -d '' POLICY <<EOF
   ]
 }
 EOF
-aws iam create-policy --policy-name AllowCodebuildToStartTPS --policy-document "${POLICY}"
+    aws iam create-policy --policy-name AllowCodebuildToStartTPS --policy-document "${POLICY}"
+fi
+
+title "Checking for ECS container role"
+aws iam get-role --role-name "ecsInstanceRole" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    title "Creating a container role for ECS"
+    read -r -d '' POLICY <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      }
+    }
+  ]
+}
+EOF
+    aws iam create-role --role-name "ecsInstanceRole" --assume-role-policy-document "${POLICY}"
+
+    # attach built-in policy to allow container service
+    aws iam attach-role-policy --role-name "ecsInstanceRole" --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+fi
+
+title "Checking for ECS instance profile"
+aws iam get-instance-profile --instance-profile-name "ecsInstanceRole" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    title "Creating ECS instance profile"
+    aws iam create-instance-profile --instance-profile-name "ecsInstanceRole"
+    aws iam add-role-to-instance-profile --instance-profile-name "ecsInstanceRole" --role-name "ecsInstanceRole"
+fi
