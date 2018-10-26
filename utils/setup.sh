@@ -107,7 +107,7 @@ StreetNames==0.1.5
 Werkzeug==0.12.2
 appdirs==1.4.3
 argparse==1.4.0
-boto3==1.7.10
+boto3==1.9.32
 boto==2.48.0
 edtf==2.6.0
 enum34==1.1.6
