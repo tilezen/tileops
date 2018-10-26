@@ -141,7 +141,7 @@ if [ -z "$ACCOUNT_ID" ]; then
     exit 1
 fi
 
-title "Checking or Codebuild TPS policy"
+title "Checking for Codebuild TPS policy"
 aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/AllowCodebuildToStartTPS" >/dev/null 2>&1 || error_exit
 if [ $? -ne 0 ]; then
     title "Creating a policy for Codebuild TPS"
