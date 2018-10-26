@@ -64,7 +64,7 @@ export GOARCH=amd64
 export AWS_DEFAULT_REGION="${REGION}"
 
 title "Creating S3 buckets"
-for func in tile-assets rawr-tiles missing-bucket meta-tiles; do
+for func in tile-assets rawr-tiles missing-tiles meta-tiles; do
    aws s3 mb "s3://${PREFIX}-${func}-${REGION}" --region "${REGION}"
 done
 
