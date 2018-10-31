@@ -13,6 +13,8 @@ env:
     TILEQUEUE_VERSION: master
     VECTOR_DATASOURCE_VERSION: master
     TILEOPS_VERSION: master
+    # overrides for Batch job environment, which can override the config. for example, if we wanted to override the meta-batch S3 store name (i.e: bucket), then we could set META_BATCH__TILEQUEUE__STORE__NAME=whatever.
+    JOB_ENV_OVERRIDES: ""
 
 phases:
   install:
@@ -35,4 +37,4 @@ phases:
           if [ -z "$RUN_ID" ]; then
             RUN_ID="$PLANET_DATE";
           fi
-      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium --run-id $RUN_ID $PLANET_DATE
+      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium --run-id $RUN_ID $PLANET_DATE --job-env-overrides $JOB_ENV_OVERRIDES

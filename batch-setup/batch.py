@@ -45,7 +45,7 @@ def db_lookup(databases):
 
 
 def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
-                  region, date_prefixes, check_metatile_exists):
+                  region, date_prefixes, check_metatile_exists, overrides):
     if name == 'rawr-batch':
         env = {
             'TILEQUEUE__RAWR__POSTGRESQL__HOST': db_hosts,
@@ -96,6 +96,14 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
     else:
         raise RuntimeError("Unknown image name %r while building environment."
                            % (name))
+
+    # add extra overrides passed in as options. note the double underscore
+    # separator at the end.
+    name_as_env_prefix = name.upper().replace('-', '_') + '__'
+    for k, v in overrides.iteritems():
+        if k.startswith(name_as_env_prefix):
+            new_k = k[len(name_as_env_prefix):]
+            env[new_k] = v
 
     # serialise the values in key-value dicts as JSON strings. this is because
     # we will serialise the env to a YAML file, but the env var set should be
@@ -319,7 +327,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefixes):
 def make_job_definitions(
         iam, run_id, region, repo_urls, databases, buckets,
         db_password, memory, vcpus, retry_attempts, date_prefixes,
-        check_metatile_exists):
+        check_metatile_exists, job_env_overrides):
 
     db_hosts, db_name, db_user = db_lookup(databases)
 
@@ -341,7 +349,7 @@ def make_job_definitions(
             'command': cmd_for_image(name, region),
             'environment': env_for_image(
                 name, db_hosts, db_name, db_user, db_password, buckets, region,
-                date_prefixes, check_metatile_exists),
+                date_prefixes, check_metatile_exists, job_env_overrides),
             'memory': memory_value,
             'vcpus': vcpus_value,
             'retry-attempts': retry_value,
@@ -427,7 +435,8 @@ def run_go(cmd, *args, **kwargs):
 def create_job_definitions(run_id, region, repo_urls, databases, buckets,
                            db_password, memory=1024, vcpus=1,
                            retry_attempts=5, date_prefix=None,
-                           meta_date_prefix=None, check_metatile_exists=False):
+                           meta_date_prefix=None, check_metatile_exists=False,
+                           job_env_overrides={}):
 
     """
     Set up job definitions for all of the repos in repo_urls.
@@ -441,6 +450,14 @@ def create_job_definitions(run_id, region, repo_urls, databases, buckets,
 
     If meta_date_prefix is specified, a different date prefix will be used in
     the metatile and missing buckets.
+
+    If job_env_overrides is specified, these will be interpreted as
+    configuration parameters for the environment of the batch jobs, as written
+    into the job definitions. For example, an override of:
+
+      {"META_BATCH__TILEQUEUE__STORE__NAME": "foo"}
+
+    Would override the bucket name in the meta-batch environment.
 
     Returns a mapping from the keys of repo_urls to the job definition names.
     """
@@ -458,7 +475,7 @@ def create_job_definitions(run_id, region, repo_urls, databases, buckets,
     job_definitions, definition_names = make_job_definitions(
         iam, run_id, region, repo_urls, databases, buckets,
         db_password, memory, vcpus, retry_attempts, date_prefixes,
-        check_metatile_exists)
+        check_metatile_exists, job_env_overrides)
 
     tmpdir = tempfile.mkdtemp()
     try:

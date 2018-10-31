@@ -511,6 +511,8 @@ if __name__ == '__main__':
                         'META_DATE_PREFIX.')
     parser.add_argument('--run-id', help='Distinctive run ID to give to '
                         'this build. Defaults to planet date YYMMDD.')
+    parser.add_argument('--job-env-overrides', default=[], nargs='*',
+                        help='Overrides for the Batch job environment.')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -591,6 +593,7 @@ if __name__ == '__main__':
         tileops_version=args.tileops_version,
         metatile_size=args.metatile_size,
         meta_date_prefix=meta_date_prefix,
+        job_env_overrides=" ".join(args.job_env_overrides),
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
