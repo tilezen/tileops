@@ -106,7 +106,7 @@ job_def_names = create_job_definitions(
     memory=memory, vcpus=vcpus, retry_attempts=retry_attempts,
     date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix,
     check_metatile_exists=args.check_metatile_exists,
-    overrides=job_env_overrides)
+    job_env_overrides=job_env_overrides)
 
 # create config file for tilequeue
 for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
