@@ -126,7 +126,7 @@ pycountry==17.9.23
 pyproj==1.9.5.1
 python-dateutil==2.6.1
 redis==2.10.6
-requests==2.18.4
+requests==2.20.0
 six==1.11.0
 statsd==3.2.1
 ujson==1.35
