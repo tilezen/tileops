@@ -50,6 +50,8 @@ export TILEQUEUE_VERSION='%(tilequeue_version)s'
 export VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 
 export METATILE_SIZE='%(metatile_size)d'
+
+export JOB_ENV_OVERRIDES='%(job_env_overrides)s'
 eof
 
 mkdir /tmp/awslogs
@@ -82,7 +84,8 @@ set -x
 python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --date \$DATE --run-id \$RUN_ID --vector-datasource-version \$VECTOR_DATASOURCE_VERSION \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
        \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD
 python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas 10 \$RUN_ID --missing-bucket \$MISSING_BUCKET \
-       --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \$DB_PASSWORD
+       --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \
+       \$DB_PASSWORD --overrides \$JOB_ENV_OVERRIDES
 python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix \
        \$RAWR_BUCKET \$RUN_ID \$MISSING_BUCKET
 python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$META_DATE_PREFIX --missing-bucket \$MISSING_BUCKET \

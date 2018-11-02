@@ -40,6 +40,12 @@ parser.add_argument('--meta-date-prefix', help='Optional different date '
 parser.add_argument('--check-metatile-exists', default=False,
                     action='store_true', help='Whether to check if the '
                     'metatile exists first before processing the batch job.')
+parser.add_argument('--overrides', nargs='*', default=[], help='List of '
+                    'KEY=VALUE pairs to use when overriding environment '
+                    'variables in Batch jobs. Prefix the KEY with the '
+                    'uppercase, underscore-delimited, '
+                    'double-underscore-separated name of the batch job, e.g: '
+                    'META_BATCH__')
 
 args = parser.parse_args()
 run_id = args.run_id
@@ -51,6 +57,12 @@ if region is None:
     import sys
     print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
     sys.exit(1)
+
+# unpack overrides into a dict, so it's easier to work with
+job_env_overrides = {}
+for kv in args.overrides:
+    key, value = kv.split('=', 1)
+    job_env_overrides[key] = value
 
 repo_uris = ensure_ecr(run_id)
 
@@ -93,7 +105,8 @@ job_def_names = create_job_definitions(
     run_id, region, repo_uris, database_ids, buckets, args.db_password,
     memory=memory, vcpus=vcpus, retry_attempts=retry_attempts,
     date_prefix=date_prefix, meta_date_prefix=args.meta_date_prefix,
-    check_metatile_exists=args.check_metatile_exists)
+    check_metatile_exists=args.check_metatile_exists,
+    job_env_overrides=job_env_overrides)
 
 # create config file for tilequeue
 for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
