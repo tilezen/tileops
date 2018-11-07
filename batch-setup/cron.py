@@ -128,6 +128,8 @@ def create_tps_profile(iam, profile_name, locations):
                 'iam:CreateRole',
                 'iam:AttachRolePolicy',
                 'iam:PassRole',
+                'iam:GetInstanceProfile',
+                'iam:AddRoleToInstanceProfile',
             ],
             Resource='*',
         ),

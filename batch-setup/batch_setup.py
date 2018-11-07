@@ -28,6 +28,29 @@ def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
     return role_arn
 
 
+def get_or_create_instance_profile(boto_iam, boto_ec2, instanceRoleName,
+                                   instanceProfileName):
+    """
+    Find an instance profile named instanceProfileName, or create one and attach
+    instanceRoleName to it.
+    """
+
+    response = None
+    try:
+        response = boto_iam.get_instance_profile(
+            InstanceProfileName=instanceProfileName)
+
+    except boto_iam.exceptions.NoSuchEntityException:
+        response = boto_iam.create_instance_profile(
+            InstanceProfileName=instanceProfileName)
+        boto_iam.add_role_to_instance_profile(
+            InstanceProfileName=instanceProfileName,
+            RoleName=instanceRoleName,
+        )
+
+    return response['InstanceProfile']['Arn']
+
+
 def find_policy(boto_iam, policy_name):
     """
     Find an AWS policy by name and return a dict of information about it.
@@ -121,6 +144,10 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
         boto_iam, instanceRoleName, instanceRoleDocument)
     print("Using ECS instance role %s" % instanceRoleArn)
 
+    instanceProfileArn = get_or_create_instance_profile(
+        boto_iam, boto_ec2, instanceRoleName, instanceRoleName)
+    print("Using ECS instance profile %s" % instanceProfileArn)
+
     # Create the spot fleet role
     # https://docs.aws.amazon.com/batch/latest/userguide/spot_fleet_IAM_role.html
     spotIamFleetRoleName = "AmazonEC2SpotFleetRole"
@@ -170,7 +197,8 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
                 maxvCpus=32768,
                 desiredvCpus=0,
                 instanceTypes=["optimal"],
-                instanceRole=instanceRoleArn,
+                # although this is called "instanceRole", it really wants an instance _profile_ ARN.
+                instanceRole=instanceProfileArn,
                 tags={
                     'Name': 'Tiles Rendering'
                 },
