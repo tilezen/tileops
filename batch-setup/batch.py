@@ -161,7 +161,24 @@ def cmd_for_image(name, region):
     return cmd
 
 
-def s3_policy(bucket, date_prefix, allow_write=False):
+def s3_policy(bucket_or_buckets, date_prefix, allow_write=False):
+
+    if isinstance(bucket_or_buckets, list):
+        buckets = bucket_or_buckets
+    else:
+        buckets = [bucket_or_buckets]
+
+    object_resources = []
+    bucket_resources = []
+    for bucket in buckets:
+        object_resources.extend([
+            # allow access to objects under the date prefix
+            "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+            # and also objects under a hash + date prefix
+            "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
+        ])
+        bucket_resources.append("arn:aws:s3:::%s" % (bucket))
+
     actions = ['s3:GetObject', 's3:GetObjectTagging']
     if allow_write:
         actions.extend([
@@ -177,18 +194,13 @@ def s3_policy(bucket, date_prefix, allow_write=False):
                 "Sid": "ObjectOps",
                 "Effect": "Allow",
                 "Action": actions,
-                "Resource": [
-                    # allow access to objects under the date prefix
-                    "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
-                    # and also objects under a hash + date prefix
-                    "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
-                ],
+                "Resource": object_resources,
             },
             {
                 "Sid": "BucketOps",
                 "Effect": "Allow",
                 "Action": "s3:ListBucket",
-                "Resource": "arn:aws:s3:::%s" % (bucket),
+                "Resource": bucket_resources,
             }
         ]
     }
@@ -196,11 +208,14 @@ def s3_policy(bucket, date_prefix, allow_write=False):
     return policy
 
 
-def find_or_create_s3_policy(iam, bucket_name, bucket, date_prefix,
+def find_or_create_s3_policy(iam, bucket_name, bucket_or_buckets, date_prefix,
                              allow_write=False):
     """
     Finds a policy in the run's environment to access the given bucket,
     or creates one.
+
+    The bucket_or_buckets parameter can either be a string or a list of
+    strings.
 
     Returns the policy's ARN.
     """
@@ -211,7 +226,7 @@ def find_or_create_s3_policy(iam, bucket_name, bucket, date_prefix,
     policy = find_policy(iam, policy_name)
 
     if policy is None:
-        policy_json = s3_policy(bucket, date_prefix, allow_write)
+        policy_json = s3_policy(bucket_or_buckets, date_prefix, allow_write)
         response = iam.create_policy(
             PolicyName=policy_name,
             PolicyDocument=json.dumps(policy_json),

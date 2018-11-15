@@ -8,6 +8,7 @@ from run_id import assert_run_id_format
 import argparse
 import os
 import yaml
+import json
 from collections import defaultdict
 
 
@@ -18,6 +19,25 @@ def vpc_of_sg(sg_id):
     groups = result['SecurityGroups']
     assert len(groups) == 1
     return groups[0]['VpcId']
+
+
+def _looks_like_an_s3_bucket_name(bucket):
+    """
+    Return True if bucket looks like a valid S3 bucket name. For this test, we
+    assume S3 bucket names should be lower case ASCII alphanumeric,
+    dash-delimited.
+    """
+
+    # return list of characters in range - inclusive of both ends
+    def _chr_range(a, b):
+        return [chr(x) for x in xrange(ord(a), ord(b) + 1)]
+
+    allowed_chars = _chr_range('a', 'z') + _chr_range('0', '9') + ['-']
+    for ch in bucket:
+        if ch not in allowed_chars:
+            return False
+
+    return True
 
 
 parser = argparse.ArgumentParser('Script to kick off tile creation.')
@@ -52,6 +72,16 @@ run_id = args.run_id
 assert_run_id_format(run_id)
 date_prefix = args.date_prefix or run_id
 
+if args.meta_bucket.startswith('[') and args.meta_bucket.endswith(']'):
+    meta_buckets = json.loads(args.meta_bucket)
+else:
+    meta_buckets = [args.meta_bucket]
+
+assert meta_buckets, "Must configure at least one meta tile storage bucket."
+for bucket in meta_buckets:
+    assert _looks_like_an_s3_bucket_name(bucket), \
+        "%r doesn't look like an S3 bucket name." % (bucket,)
+
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
     import sys
@@ -79,8 +109,8 @@ batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name)
 # build docker images & upload
 build_and_upload_images(repo_uris)
 
-buckets = Buckets(args.rawr_bucket, args.meta_bucket,
-                  args.missing_bucket or args.meta_bucket)
+buckets = Buckets(args.rawr_bucket, meta_buckets,
+                  args.missing_bucket or meta_buckets[-1])
 
 # set up memory for jobs. this is a starting point, and might need to be
 # raised if jobs fail with out-of-memory errors.
