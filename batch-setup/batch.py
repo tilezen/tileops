@@ -97,20 +97,22 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
         raise RuntimeError("Unknown image name %r while building environment."
                            % (name))
 
-    # add extra overrides passed in as options. note the double underscore
-    # separator at the end.
-    name_as_env_prefix = name.upper().replace('-', '_') + '__'
-    for k, v in overrides.iteritems():
-        if k.startswith(name_as_env_prefix):
-            new_k = k[len(name_as_env_prefix):]
-            env[new_k] = v
-
     # serialise the values in key-value dicts as JSON strings. this is because
     # we will serialise the env to a YAML file, but the env var set should be
     # an encoded YAML string. YAML is a bit weird about one-liners, and JSON is
     # a strict subset of YAML, so we get a more readable encoding for most
     # (simple) objects by using JSON instead.
     env = {k: json.dumps(v) for k, v in env.items()}
+
+    # add extra overrides passed in as options. note the double underscore
+    # separator at the end. note that we do this after the json.dumps step
+    # above to avoid double encoding - the stuff in overrides should already
+    # be encoded.
+    name_as_env_prefix = name.upper().replace('-', '_') + '__'
+    for k, v in overrides.iteritems():
+        if k.startswith(name_as_env_prefix):
+            new_k = k[len(name_as_env_prefix):]
+            env[new_k] = v
 
     return env
 
