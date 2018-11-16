@@ -78,9 +78,19 @@ else:
     meta_buckets = [args.meta_bucket]
 
 assert meta_buckets, "Must configure at least one meta tile storage bucket."
+
+# check that bucket names look like valid bucket names
+assert _looks_like_an_s3_bucket_name(args.rawr_bucket), \
+    "RAWR bucket name %r doesn't look like an S3 bucket name." \
+    % (args.rawr_bucket,)
+if args.missing_bucket is not None:
+    assert _looks_like_an_s3_bucket_name(args.missing_bucket), \
+        "missing bucket name %r doesn't look like an S3 bucket name." \
+        % (args.missing_bucket,)
 for bucket in meta_buckets:
     assert _looks_like_an_s3_bucket_name(bucket), \
-        "%r doesn't look like an S3 bucket name." % (bucket,)
+        "meta bucket name %r doesn't look like an S3 bucket name." % (bucket,)
+
 
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
