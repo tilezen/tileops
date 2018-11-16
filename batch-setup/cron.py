@@ -532,7 +532,7 @@ if __name__ == '__main__':
     assert args.metatile_size < 100
 
     run_id = args.run_id or planet_date.strftime('%y%m%d')
-    profile_name = args.profile_name or ('tps-'  + run_id)
+    profile_name = args.profile_name or ('tps-' + run_id)
 
     def bucket_name(arg_name, bucket_function):
         # command line argument is most important
