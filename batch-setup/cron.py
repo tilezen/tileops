@@ -532,15 +532,25 @@ if __name__ == '__main__':
     assert args.metatile_size < 100
 
     run_id = args.run_id or planet_date.strftime('%y%m%d')
-    profile_name = args.profile_name or ('tps-'  + run_id)
+    profile_name = args.profile_name or ('tps-' + run_id)
 
     def bucket_name(arg_name, bucket_function):
+        # command line argument is most important
         prop_name = arg_name.lstrip('-').replace('-', '_')
         value = getattr(args, prop_name)
         if value:
             return value
+
+        # if that doesn't exist, look for an environment variable
+        env_name = prop_name.upper()
+        if env_name in os.environ:
+            return os.environ[env_name]
+
+        # otherwise, default to a value constructed from the bucket prefix.
         if args.bucket_prefix:
             return '%s-%s-%s' % (args.bucket_prefix, bucket_function, region)
+
+        # finally, error out if we can't figure out a value.
         raise RuntimeError('Must provide either --bucket-prefix or %s.'
                            % (arg_name,))
 
