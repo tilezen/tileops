@@ -48,7 +48,8 @@ fi
 echo $$ > "${PIDFILE}"
 echo "starting up" > $STATUS
 
-# to stop any apt install asking questions
+# to stop any apt install asking questions - NOTE: this doesn't get exported
+# in any sudo environment!
 export DEBIAN_FRONTEND=noninteractive
 
 touch ~/.pgpass
@@ -65,16 +66,16 @@ trap stop_with_failure ERR
 
 # software updating and installation is more-or-less idempotent
 echo "installing software" > $STATUS
-sudo apt update
-sudo apt upgrade -y -q
-sudo apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python-pip python-pil libxml2-dev libxslt-dev unzip postgis
+sudo DEBIAN_FRONTEND=noninteractive apt update
+sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python-pip python-pil libxml2-dev libxslt-dev unzip postgis
 
 # install osm2pgsql from PPA
 if [[ ! -x $OSM2PGSQL ]]; then
     echo "installing osm2pgsql" > $STATUS
-    sudo apt-add-repository -y ppa:tilezen/ppa
-    sudo apt update
-    sudo apt install -y -q osm2pgsql
+    sudo DEBIAN_FRONTEND=noninteractive apt-add-repository -y ppa:tilezen/ppa
+    sudo DEBIAN_FRONTEND=noninteractive apt update
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y -q osm2pgsql
 fi
 
 # if there's no planet, then download it
