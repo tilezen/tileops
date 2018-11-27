@@ -38,7 +38,7 @@ rawr:
   label-placement-layers:
     point: ['earth', 'water']
     polygon: ['buildings', 'earth', 'landuse', 'water']
-    linestring: ['earth', 'landuse', 'water']
+    linestring: ['earth', 'landuse']
   indexes:
     - type: osm
     - type: simple
