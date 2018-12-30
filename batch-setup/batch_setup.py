@@ -194,7 +194,7 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
             computeResources=dict(
                 type='SPOT',
                 minvCpus=0,
-                maxvCpus=32768,
+                maxvCpus=3000,
                 desiredvCpus=0,
                 instanceTypes=["optimal"],
                 # although this is called "instanceRole", it really wants an instance _profile_ ARN.
