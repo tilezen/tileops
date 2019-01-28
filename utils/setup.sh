@@ -105,7 +105,7 @@ cat > "${TMPDIR}/bootstrap-requirements.txt" <<EOF
 Jinja2==2.9.6
 MarkupSafe==1.0
 ModestMaps==1.4.7
-PyYAML==3.12
+PyYAML==4.2b4
 Shapely==1.6.2.post1
 StreetNames==0.1.5
 Werkzeug==0.12.2
