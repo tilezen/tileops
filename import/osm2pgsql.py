@@ -145,6 +145,35 @@ def create_security_group_allowing(ec2, sg_name, ip):
     return sg_id
 
 
+def _estimate_planet_size_gb():
+    """
+    Return an integer estimate of the planet size in GB.
+
+    Note: this is in "disk" GB, i.e: 1,000,000,000 bytes, not "memory" GB,
+    i.e: 2 ** 30 bytes. This is because we're intending to use this to set
+    the capacity of an EC2 disk.
+    """
+
+    import requests
+
+    # just use latest planet - unless we're loading a super-old planet, then
+    # it won't be too different from the latest. and the latest is likely to
+    # be the largest and therefore most conservative estimate.
+    url = 'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf'
+
+    r = requests.head(url)
+    if r.status_code == 200:
+        content_length = r.headers.get('Content-Length')
+        if content_length:
+            return int(content_length) // (1000 * 1000 * 1000)
+
+    # if there wasn't a content-length, or we couldn't fetch the planet, then
+    # take a guess. this will become out of date at some point. the planet is
+    # currently growing a little over 110MB per week, or 5.7GB per year. an
+    # estimate of 63GB should see us okay until about 2022.
+    return 63
+
+
 def create_security_group_allowing_this_ip(ec2, ip_addr):
     from ipaddress import ip_address
 
@@ -181,13 +210,23 @@ def start_osm2pgsql_instance(
 
     allow_this_ip = create_security_group_allowing_this_ip(ec2, ip_addr)
 
+    # get an approximate planet size, for figuring out how much disk space we
+    # need for the planet, flat nodes, etc...
+    planet_size = _estimate_planet_size_gb()
+
+    # we need roughly: storage for 1 planet, storage for flat nodes (which is
+    # hand-wavingly about the same as the planet), and a bit extra for working
+    # space and shapefiles. we can approximate that as 3x the planet size and
+    # see how that works out.
+    disk_size = 3 * planet_size
+
     response = ec2.run_instances(
         BlockDeviceMappings=[dict(
             DeviceName='/dev/sda1',
             Ebs=dict(
                 DeleteOnTermination=True,
                 Iops=5000,
-                VolumeSize=100,
+                VolumeSize=disk_size,
                 VolumeType='io1',
             ),
         )],
