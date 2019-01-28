@@ -68,7 +68,7 @@ def find_policy(boto_iam, policy_name):
 
 
 def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
-                jobQueueName):
+                jobQueueName, max_vcpus):
     """
     Set up AWS Batch with a Compute Environment and Job Queue.
 
@@ -194,7 +194,7 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
             computeResources=dict(
                 type='SPOT',
                 minvCpus=0,
-                maxvCpus=3000,
+                maxvCpus=max_vcpus,
                 desiredvCpus=0,
                 instanceTypes=["optimal"],
                 # although this is called "instanceRole", it really wants an instance _profile_ ARN.
