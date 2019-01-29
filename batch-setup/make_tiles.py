@@ -66,6 +66,13 @@ parser.add_argument('--overrides', nargs='*', default=[], help='List of '
                     'uppercase, underscore-delimited, '
                     'double-underscore-separated name of the batch job, e.g: '
                     'META_BATCH__')
+parser.add_argument('--max-vcpus', default=32768, type=int,
+                    help='Maximum number of VCPUs to request in the Batch '
+                    'compute environment. Note that if this is set so high '
+                    'that the Postgres servers are overloaded, you will make '
+                    'slower progress than with a lower number. This is the '
+                    'number requested, but AWS service limits may mean that a '
+                    'lower number is actually supplied.')
 
 args = parser.parse_args()
 run_id = args.run_id
@@ -114,7 +121,8 @@ compute_env_name = 'compute-env-' + run_id
 job_queue_name = 'job-queue-' + run_id
 vpc_id = vpc_of_sg(db_sg_id)
 
-batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name)
+batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name,
+            args.max_vcpus)
 
 # build docker images & upload
 build_and_upload_images(repo_uris)

@@ -515,6 +515,11 @@ if __name__ == '__main__':
                         'this build. Defaults to planet date YYMMDD.')
     parser.add_argument('--job-env-overrides', default=[], nargs='*',
                         help='Overrides for the Batch job environment.')
+    parser.add_argument('--num-db-replicas', default=10, type=int,
+                        help='Number of database replicas to use.')
+    parser.add_argument('--max-vcpus', default=32768, type=int,
+                        help='Number of VCPUs to request in the Batch '
+                        'environment')
 
     args = parser.parse_args()
     planet_date = datetime.strptime(args.date, '%y%m%d')
@@ -606,6 +611,8 @@ if __name__ == '__main__':
         metatile_size=args.metatile_size,
         meta_date_prefix=meta_date_prefix,
         job_env_overrides=" ".join(args.job_env_overrides),
+        num_db_replicas=args.num_db_replicas,
+        max_vcpus=args.max_vcpus,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))

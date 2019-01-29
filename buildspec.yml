@@ -15,6 +15,9 @@ env:
     TILEOPS_VERSION: master
     # overrides for Batch job environment, which can override the config. for example, if we wanted to override the meta-batch S3 store name (i.e: bucket), then we could set META_BATCH__TILEQUEUE__STORE__NAME=whatever.
     JOB_ENV_OVERRIDES: ""
+    # number of database replicas to use, and number of vCPUs to request in the Batch environment. these numbers should be balanced, as having too many Batch jobs hammering the databases can result in lower or even zero progress as they all contend for database connection slots.
+    NUM_DB_REPLICAS: 10
+    MAX_VCPUS: 32768
 
 phases:
   install:
@@ -37,4 +40,4 @@ phases:
           if [ -z "$RUN_ID" ]; then
             RUN_ID="$PLANET_DATE";
           fi
-      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium --run-id $RUN_ID $PLANET_DATE --job-env-overrides $JOB_ENV_OVERRIDES
+      - pipenv run python batch-setup/cron.py --bucket-prefix $BUCKET_PREFIX --raw-tiles-version $RAW_TILES_VERSION --tilequeue-version $TILEQUEUE_VERSION --vector-datasource-version $VECTOR_DATASOURCE_VERSION --tileops-version $TILEOPS_VERSION --ec2-instance-type t2.medium --run-id $RUN_ID $PLANET_DATE --max-vcpus $MAX_VCPUS --num-db-replicas $NUM_DB_REPLICAS --job-env-overrides $JOB_ENV_OVERRIDES

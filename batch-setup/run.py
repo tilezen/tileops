@@ -29,12 +29,17 @@ parser.add_argument("--cename", default="raw-tiles",
 parser.add_argument("--jqname", default="raw-tiles",
                     help="The name of the job queue")
 
+# maximum number of VCPUs to use in the Batch cluster
+parser.add_argument("--max-vcpus", default=32768, type=int,
+                    help="Maximum number of VPUs to use in the Batch cluster")
+
 args = parser.parse_args()
 region_name = args.region
 vpc_id = args.vpcid
 securityGroupIds = args.sg
 computeEnvironmentName = args.cename
 jobQueueName = args.jqname
+max_vcpus = args.max_vcpus
 
 batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
-            jobQueueName)
+            jobQueueName, max_vcpus)
