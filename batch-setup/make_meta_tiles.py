@@ -204,7 +204,7 @@ class MissingTileFinder(object):
             shutil.rmtree(tmpdir)
 
 
-def _JobSizer(object):
+class _JobSizer(object):
     def __init__(self, bucket, prefix, key_format_type):
         self.bucket = bucket
         self.prefix = prefix
