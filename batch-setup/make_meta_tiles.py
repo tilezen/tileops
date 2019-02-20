@@ -15,6 +15,9 @@ from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
 import gzip
 from tileset import CoordSet
+from tilequeue.store import make_s3_tile_key_generator
+from ModestMaps.Core import Coordinate
+from multiprocessing import Pool
 
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
@@ -205,56 +208,79 @@ class MissingTileFinder(object):
 
 
 class _JobSizer(object):
-    def __init__(self, bucket, prefix, key_format_type):
+    """
+    Individual instance of a callable which can evaluate the size of a job
+    (i.e: grouped set of RAWR tiles).
+    """
+
+    def __init__(self, bucket, prefix, key_format_type, rawr_zoom):
         self.bucket = bucket
         self.prefix = prefix
         self.key_format_type = key_format_type
+        self.rawr_zoom = rawr_zoom
 
-    def __call__(self, coord):
-        from tilequeue.store import S3TileKeyGenerator
+    def __call__(self, parent):
         s3 = boto3.client('s3')
+        gen = make_s3_tile_key_generator({
+            'key-format-type': self.key_format_type,
+        })
 
-        gen = S3TileKeyGenerator(key_format_type=self.key_format_type)
-        key = gen(self.prefix, coord, 'zip')
+        dz = self.rawr_zoom - parent.zoom
+        assert dz >= 0
+        width = 1 << dz
 
-        response = s3.head_object(Bucket=self.bucket, Key=key)
-        return response['ContentLength']
+        size = 0
+        for dx in xrange(width):
+            for dy in xrange(width):
+                coord = Coordinate(
+                    zoom=self.rawr_zoom,
+                    column=((parent.column << dz) + dx),
+                    row=((parent.row << dz) + dy))
+                key = gen(self.prefix, coord, 'zip')
+                response = s3.head_object(Bucket=self.bucket, Key=key)
+                size += response['ContentLength']
+
+        return parent, size
 
 
 def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
-              size_threshold):
+              size_threshold, pool_size=30):
     """
     Look up the RAWR tiles in the rawr_bucket under the prefix and with the
     given key format, group the RAWR tiles (usually at zoom 10) by the job
     group zoom (usually 7) and sum their sizes. Return a map-like object
     which has a truthy value for those Coordinates at group_zoom which sum
     to size_threshold or more.
+
+    A pool size of 30 seems to work well; the point of the pool is to hide
+    the latency of S3 requests, so pretty quickly hits the law of diminishing
+    returns with extra concurrency (without the extra network cards that Batch
+    would provide).
     """
 
-    from multiprocessing import Pool
-    from ModestMaps.Core import Coordinate
-    from collections import defaultdict
-
-    all_coords = []
-    num_coords = 1 << rawr_zoom
-    for x in xrange(num_coords):
-        for y in xrange(num_coords):
-            all_coords.append(Coordinate(zoom=rawr_zoom, column=x, row=y))
-
-    # do this in parallel, because at z10 there are over a million RAWR tiles,
-    # so enumerating them sequentially will take a _lot_ of time waiting on
-    # responses over the network.
-    p = Pool(100)
-    job_sizer = _JobSizer(rawr_bucket, prefix, key_format_type)
-    job_size = defaultdict(lambda: 0)
-    for coord, size in zip(all_coords, p.map(job_sizer, all_coords)):
-        job_coord = coord.zoomTo(group_zoom).container()
-        job_size[job_coord] += size
+    p = Pool(pool_size)
+    job_sizer = _JobSizer(rawr_bucket, prefix, key_format_type, rawr_zoom)
 
     big_jobs = CoordSet(group_zoom, min_zoom=group_zoom)
-    for coord, size in job_size.iteritems():
-        if size >= size_threshold:
-            big_jobs[coord] = True
+
+    # loop over each column individually. this limits the number of concurrent
+    # tasks, which means we don't waste memory maintaining a huge queue of
+    # pending tasks. and when something goes wrong, the stacktrace isn't buried
+    # in a million others.
+    num_coords = 1 << group_zoom
+    for x in xrange(num_coords):
+        # kick off tasks async. each one knows its own coordinate, so we only
+        # need to track the handle to know when its finished.
+        tasks = []
+        for y in xrange(num_coords):
+            coord = Coordinate(zoom=group_zoom, column=x, row=y)
+            tasks.append(p.apply_async(job_sizer, (coord,)))
+
+        # collect tasks and put them into the big jobs list.
+        for task in tasks:
+            coord, size = task.get()
+            if size >= size_threshold:
+                big_jobs[coord] = True
 
     return big_jobs
 
