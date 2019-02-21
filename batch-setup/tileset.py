@@ -124,17 +124,17 @@ class CoordSet(object):
         if coord.zoom > self.max_zoom and not self.drop_over_bounds:
             coord = coord.zoomTo(self.max_zoom).container()
 
-        return self.zooms.get(coord.zoom)
+        return self.zooms.get(coord.zoom), coord
 
     def __getitem__(self, coord):
-        bits = self._zoom_for(coord)
+        bits, coord = self._zoom_for(coord)
         if bits is not None:
             return bits[coord]
         else:
             raise KeyError(coord)
 
     def __setitem__(self, coord, value):
-        bits = self._zoom_for(coord)
+        bits, coord = self._zoom_for(coord)
         if bits is not None:
             bits[coord] = value
 
@@ -161,3 +161,11 @@ if __name__ == '__main__':
     c[zoom0_coord] = True
     c[zoom10_coord] = True
     assert set(c) == set([zoom0_coord, zoom10_coord])
+
+    c = CoordSet(10, min_zoom=7)
+    c[Coordinate(zoom=11, column=3, row=1)] = True
+    assert list(c) == [Coordinate(zoom=10, column=1, row=0)]
+
+    c = CoordSet(10, min_zoom=7, drop_over_bounds=True)
+    c[Coordinate(zoom=11, column=3, row=1)] = True
+    assert list(c) == []
