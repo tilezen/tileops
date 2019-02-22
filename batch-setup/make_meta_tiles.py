@@ -150,9 +150,9 @@ class MissingTileFinder(object):
 
             print("Splitting into high and low zoom lists")
 
-            # contains zooms 0 until (but not including) split zoom. anything
-            # beyond that is not needed and we just drop it.
-            missing_low = CoordSet(split_zoom - 1, drop_over_bounds=True)
+            # contains zooms 0 until group zoom. the jobs between the group
+            # zoom and RAWR zoom are merged into the parent at group zoom.
+            missing_low = CoordSet(zoom_max)
 
             # contains job coords at either zoom_max or split_zoom only.
             # zoom_max is a misnomer here, as it's always less than or equal to
@@ -163,6 +163,11 @@ class MissingTileFinder(object):
                 for line in fh:
                     c = deserialize_coord(line)
                     if c.zoom < split_zoom:
+                        # in order to not have too many jobs in the queue, we
+                        # group the low zoom jobs to the zoom_max (usually 7)
+                        if c.zoom > zoom_max:
+                            c = c.zoomTo(zoom_max).container()
+
                         missing_low[c] = True
 
                     else:
