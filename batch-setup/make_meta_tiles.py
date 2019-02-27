@@ -191,6 +191,9 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
 
 
 class HighZoomLense(object):
+    def __init__(self, config):
+        self.config = config
+
     def missing_file(self, missing):
         return missing.high_zoom_file
 
@@ -199,6 +202,9 @@ class HighZoomLense(object):
 
 
 class LowZoomLense(object):
+    def __init__(self, config):
+        self.config = config
+
     def missing_file(self, missing):
         return missing.low_zoom_file
 
@@ -306,9 +312,9 @@ if __name__ == '__main__':
 
     tile_renderer = TileRenderer(tile_finder, split_zoom, zoom_max)
 
-    tile_renderer.render(args.retries, LowZoomLense())
+    tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
     # turn off databases by saying we want to ensure that zero are running.
     ensure_dbs(args.run_id, 0)
 
-    tile_renderer.render(args.retries, HighZoomLense())
+    tile_renderer.render(args.retries, HighZoomLense(args.high_zoom_config))
