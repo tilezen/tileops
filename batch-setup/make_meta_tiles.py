@@ -193,23 +193,19 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
 class HighZoomLense(object):
     def __init__(self, config):
         self.config = config
+        self.description = "high zoom tiles"
 
     def missing_file(self, missing):
         return missing.high_zoom_file
-
-    def description(self):
-        return "high zoom tiles"
 
 
 class LowZoomLense(object):
     def __init__(self, config):
         self.config = config
+        self.description = "low zoom tiles"
 
     def missing_file(self, missing):
         return missing.low_zoom_file
-
-    def description(self):
-        return "low zoom tiles"
 
 
 class TileRenderer(object):
