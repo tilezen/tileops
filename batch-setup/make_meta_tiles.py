@@ -241,8 +241,9 @@ class TileRenderer(object):
             with self._missing() as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
-                print("FAILED! %d %s still missing after %d tries"
-                      % (count, lense.description, num_retries))
+                raise RuntimeError(
+                    "FAILED! %d %s still missing after %d tries"
+                    % (count, lense.description, num_retries))
 
 
 if __name__ == '__main__':
