@@ -304,6 +304,9 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
     tilequeue_batch_enqueue(cfg, args)
 
 
+# adaptor class for MissingTiles to see just the high zoom parts, this is used
+# along with the LowZoomLense to loop over missing tiles generically but
+# separately.
 class HighZoomLense(object):
     def __init__(self, config):
         self.config = config
@@ -322,6 +325,9 @@ class LowZoomLense(object):
         return missing.low_zoom_file
 
 
+# abstracts away the logic for a re-rendering loop, splitting between high and
+# low zoom tiles and stopping if all the tiles aren't rendered within a
+# certain number of retries.
 class TileRenderer(object):
 
     def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max):
