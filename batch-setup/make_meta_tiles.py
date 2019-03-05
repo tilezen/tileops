@@ -11,6 +11,7 @@ import os
 import shutil
 import tempfile
 from tilequeue.tile import metatile_zoom_from_size
+from rds import ensure_dbs
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
 import gzip
@@ -303,6 +304,69 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
     tilequeue_batch_enqueue(cfg, args)
 
 
+# adaptor class for MissingTiles to see just the high zoom parts, this is used
+# along with the LowZoomLense to loop over missing tiles generically but
+# separately.
+class HighZoomLense(object):
+    def __init__(self, config):
+        self.config = config
+        self.description = "high zoom tiles"
+
+    def missing_file(self, missing):
+        return missing.high_zoom_file
+
+
+class LowZoomLense(object):
+    def __init__(self, config):
+        self.config = config
+        self.description = "low zoom tiles"
+
+    def missing_file(self, missing):
+        return missing.low_zoom_file
+
+
+# abstracts away the logic for a re-rendering loop, splitting between high and
+# low zoom tiles and stopping if all the tiles aren't rendered within a
+# certain number of retries.
+class TileRenderer(object):
+
+    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max):
+        self.tile_finder = tile_finder
+        self.big_jobs = big_jobs
+        self.split_zoom = split_zoom
+        self.zoom_max = zoom_max
+
+    def _missing(self):
+        return self.tile_finder.missing_tiles_split(
+            self.split_zoom, self.zoom_max, self.big_jobs)
+
+    def render(self, num_retries, lense):
+        for retry_number in xrange(0, num_retries):
+            with self._missing() as missing:
+                missing_tile_file = lense.missing_file(missing)
+                count = wc_line(missing_tile_file)
+
+                if count == 0:
+                    print("All %s done!" % (lense.description,))
+                    break
+
+                check_metatile_exists = retry_number > 0
+
+                # enqueue jobs for missing tiles
+                if count > 0:
+                    print("Enqueueing %s tiles" % (lense.description,))
+                    enqueue_tiles(lense.config, missing_tile_file,
+                                  check_metatile_exists)
+
+        else:
+            with self._missing() as missing:
+                missing_tile_file = lense.missing_file(missing)
+                count = wc_line(missing_tile_file)
+                raise RuntimeError(
+                    "FAILED! %d %s still missing after %d tries"
+                    % (count, lense.description, num_retries))
+
+
 if __name__ == '__main__':
     import argparse
 
@@ -372,38 +436,11 @@ if __name__ == '__main__':
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    for retry_number in xrange(0, args.retries):
-        with tile_finder.missing_tiles_split(
-                split_zoom, zoom_max, big_jobs) as missing:
-            low_count = wc_line(missing.low_zoom_file)
-            high_count = wc_line(missing.high_zoom_file)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max)
 
-            if low_count == 0 and high_count == 0:
-                print("All done!")
-                break
+    tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
-            # On the first run, don't check if the metatile already exists,
-            # since it most likely won't. On subsequent runs when we're trying
-            # to generate the remaining tiles, we want to check first to avoid
-            # repeat processing.
-            check_metatile_exists = retry_number > 0
+    # turn off databases by saying we want to ensure that zero are running.
+    ensure_dbs(args.run_id, 0)
 
-            # enqueue jobs for missing tiles
-            if low_count > 0:
-                print("Enqueueing low zoom tiles")
-                enqueue_tiles(args.low_zoom_config, missing.low_zoom_file,
-                              check_metatile_exists)
-
-            if high_count > 0:
-                print("Enqueueing high zoom tiles")
-                enqueue_tiles(args.high_zoom_config, missing.high_zoom_file,
-                              check_metatile_exists)
-
-    else:
-        with tile_finder.missing_tiles_split(
-                split_zoom, zoom_max, big_jobs) as missing:
-            low_count = wc_line(missing.low_zoom_file)
-            high_count = wc_line(missing.high_zoom_file)
-            total = low_count + high_count
-            print("FAILED! %d tiles still missing after %d tries"
-                  % (total, args.retries))
+    tile_renderer.render(args.retries, HighZoomLense(args.high_zoom_config))
