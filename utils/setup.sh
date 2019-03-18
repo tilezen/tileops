@@ -123,7 +123,7 @@ protobuf==3.4.0
 psycopg2==2.7.3.2
 pyclipper==1.0.6
 pycountry==17.9.23
-pyproj==1.9.5.1
+pyproj==2.1.0
 python-dateutil==2.6.1
 redis==2.10.6
 requests==2.20.0
