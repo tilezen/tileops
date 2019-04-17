@@ -167,8 +167,13 @@ fi
 ntuples=`psql -t -c "select sum(n_live_tup) from pg_stat_user_tables where relname = 'wof_neighbourhoods'"`
 if [[ $ntuples -eq 0 ]]; then
     echo "loading WOF data into database" > $STATUS
-    curl -so wof-neighbourhood.pgdump https://s3.amazonaws.com/tilezen-assets/wof/wof-neighbourhoods.pgdump
-    pg_restore --clean -O < wof-neighbourhood.pgdump | psql -Xq -d $PGDATABASE
+    # if the WOF snapshot was included in the assets bundle, use that one. otherwise, use the older static dump.
+    if [[ -f wof_snapshot.sql ]]; then
+        psql -Xq -d $PGDATABASE -f wof_snapshot.sql
+    else
+        curl -so wof-neighbourhood.pgdump https://s3.amazonaws.com/tilezen-assets/wof/wof-neighbourhoods.pgdump
+        pg_restore --clean -O < wof-neighbourhood.pgdump | psql -Xq -d $PGDATABASE
+    fi
 fi
 
 # clean up!
