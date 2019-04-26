@@ -100,41 +100,6 @@ for i in tz-batch-create-job-definition \
     aws s3 cp "${bin}" "s3://${PREFIX}-tile-assets-${REGION}/tileops/go/${i}" || error_exit
 done
 
-title "Uploading requirements.txt to S3"
-cat > "${TMPDIR}/bootstrap-requirements.txt" <<EOF
-Jinja2==2.9.6
-MarkupSafe==1.0
-ModestMaps==1.4.7
-PyYAML==4.2b4
-Shapely==1.6.2.post1
-StreetNames==0.1.5
-Werkzeug==0.12.2
-appdirs==1.4.3
-argparse==1.4.0
-boto3==1.9.32
-boto==2.48.0
-edtf==2.6.0
-enum34==1.1.6
-future==0.16.0
-hiredis==0.2.0
-mapbox-vector-tile==1.2.0
-paramiko==2.4.2
-protobuf==3.4.0
-psycopg2==2.7.3.2
-pyclipper==1.0.6
-pycountry==17.9.23
-pyproj==2.1.0
-python-dateutil==2.6.1
-redis==2.10.6
-requests==2.20.0
-six==1.11.0
-statsd==3.2.1
-ujson==1.35
-wsgiref==0.1.2
-zope.dottedname==4.2
-EOF
-aws s3 cp "${TMPDIR}/bootstrap-requirements.txt" "s3://${PREFIX}-tile-assets-${REGION}/tileops/py/bootstrap-requirements.txt" || error_exit
-
 ACCOUNT_ID=`aws sts get-caller-identity --output text --query 'Account'`
 if [ -z "$ACCOUNT_ID" ]; then
     echo "Failed to get an account ID from AWS." >&2

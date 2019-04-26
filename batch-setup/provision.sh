@@ -17,7 +17,48 @@ for gocmd in batch-create-job-definition batch-submit-missing-meta-tiles missing
     aws s3 cp "s3://${ASSETS_BUCKET}/tileops/go/tz-${gocmd}" "/usr/local/bin/tz-${gocmd}"
     chmod +x /usr/local/bin/tz-$gocmd
 done
-aws s3 cp "s3://${ASSETS_BUCKET}/tileops/py/bootstrap-requirements.txt" /usr/local/etc/py-requirements.txt
+
+# embed requirements as heredoc. note that this used to be stored as a file on
+# S3, but that caused a couple of issues when i forgot to update it. i noticed
+# that my workflow for updating the requirements included searching this repo,
+# so it seemed more likely that i'd catch the update if it was embedded here
+# than remembering the separate step of updating the external file.
+#
+# as a bonus, it means that we can fork the repo and add/remove requirements on
+# a per-branch basis without clobbering the (singleton) file on S3.
+#
+cat >/usr/local/etc/py-requirements.txt <<EOF
+Jinja2==2.10.1
+MarkupSafe==1.0
+ModestMaps==1.4.7
+PyYAML==4.2b4
+Shapely==1.6.2.post1
+StreetNames==0.1.5
+Werkzeug==0.12.2
+appdirs==1.4.3
+argparse==1.4.0
+boto3==1.9.32
+boto==2.48.0
+edtf==2.6.0
+enum34==1.1.6
+future==0.16.0
+hiredis==0.2.0
+mapbox-vector-tile==1.2.0
+paramiko==2.4.2
+protobuf==3.4.0
+psycopg2==2.7.3.2
+pyclipper==1.0.6
+pycountry==17.9.23
+pyproj==2.1.0
+python-dateutil==2.6.1
+redis==2.10.6
+requests==2.20.1
+six==1.11.0
+statsd==3.2.1
+ujson==1.35
+wsgiref==0.1.2
+zope.dottedname==4.2
+EOF
 pip install --upgrade pip
 virtualenv /usr/local/venv
 source /usr/local/venv/bin/activate
