@@ -319,7 +319,7 @@ def generate_password(length):
 
     chars = string.ascii_letters + string.digits
     password = ''
-    for i in xrange(0, length):
+    for i in range(0, length):
         # get two bytes of random and turn into an integer. given the small
         # size of the chars alphabet (=62 values), two bytes (=65,536 values)
         # should be enough to avoid too big a bias towards the lower range of
@@ -529,7 +529,7 @@ if __name__ == '__main__':
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     # checking that metatile size has a valid value, and it's in a sensible
@@ -620,7 +620,7 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(script_dir, 'provision.sh'), 'r') as fh:
         provision = fh.read() % provision_params
-        provision_base64 = b64encode(provision)
+        provision_base64 = b64encode(provision.encode('utf8'))
 
     ec2 = boto3.client('ec2')
 
