@@ -74,7 +74,7 @@ cwlogs = boto3.client('logs')
 
 job_ids = list_job_ids(batch, jobQueue=args.job_queue, jobStatus='SUCCEEDED')
 num_chunks = len(job_ids) / 100
-for i in xrange(0, num_chunks + 1):
+for i in range(0, num_chunks + 1):
     chunk = job_ids[(100 * i):(100 * (i+1))]
     response = batch.describe_jobs(jobs=chunk)
     for job in response['jobs']:

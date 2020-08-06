@@ -63,7 +63,7 @@ args = parser.parse_args()
 
 if args.date is None:
     planet_date = osm.latest_planet_date()
-    print "Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d')
+    print("Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d'))
 else:
     planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
 

@@ -25,8 +25,8 @@ def all_tiles_at(zoom):
     """
 
     max_coord = 2 ** zoom
-    for x in xrange(max_coord):
-        for y in xrange(max_coord):
+    for x in range(max_coord):
+        for y in range(max_coord):
             yield Coordinate(zoom=zoom, column=x, row=y)
 
 
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,

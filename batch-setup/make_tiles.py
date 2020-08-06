@@ -30,7 +30,7 @@ def _looks_like_an_s3_bucket_name(bucket):
 
     # return list of characters in range - inclusive of both ends
     def _chr_range(a, b):
-        return [chr(x) for x in xrange(ord(a), ord(b) + 1)]
+        return [chr(x) for x in range(ord(a), ord(b) + 1)]
 
     allowed_chars = _chr_range('a', 'z') + _chr_range('0', '9') + ['-']
     for ch in bucket:
@@ -102,7 +102,7 @@ for bucket in meta_buckets:
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
     import sys
-    print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+    print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
     sys.exit(1)
 
 # unpack overrides into a dict, so it's easier to work with

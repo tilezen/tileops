@@ -384,7 +384,7 @@ class Instance(object):
                     stderr.read()
                     status = stdout.read().rstrip()
 
-                    print "[%s] Import status: %r" % (time_now, status)
+                    print("[%s] Import status: %r" % (time_now, status))
                     if status == "finished":
                         break
                     elif status == "failed":
@@ -393,7 +393,7 @@ class Instance(object):
 
                 except OSError as e:
                     if e.errno == errno.ENOENT:
-                        print "[%s] Script still starting up..." % (time_now)
+                        print("[%s] Script still starting up..." % (time_now))
                     else:
                         raise
 
@@ -405,11 +405,11 @@ def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
     import os
 
     # shut down the instance and delete the key-pair
-    print "Terminating instance (id=%r)." % import_instance_id
+    print("Terminating instance (id=%r)." % import_instance_id)
     ec2.terminate_instances(InstanceIds=[import_instance_id])
     waiter = ec2.get_waiter('instance_terminated')
     waiter.wait(InstanceIds=[import_instance_id])
-    print "Instance terminated."
+    print("Instance terminated.")
 
     filename = "import-private-key-%s.pem" % (run_id,)
     os.remove(filename)
@@ -446,7 +446,7 @@ def ensure_import(
                 "start again from scratch.")
 
         # instance running!
-        print "Using running instance (id=%r)." % import_instance_id
+        print("Using running instance (id=%r)." % import_instance_id)
         instance = Instance(ec2, import_instance_id, key)
 
     # keep a flag to tell if we have finished or not. this will be set if,
@@ -456,7 +456,7 @@ def ensure_import(
     finished = False
 
     if not import_instance_id:
-        print "No instance running - starting one."
+        print("No instance running - starting one.")
 
         # no import instance running - either it was never started, or we just
         # stopped it and cleaned up. so we'll need to start one!
@@ -470,7 +470,7 @@ def ensure_import(
             iam_instance_profile, ip_addr)
 
         # instance started!
-        print "Instance started (id=%r)." % import_instance_id
+        print("Instance started (id=%r)." % import_instance_id)
         instance = Instance(ec2, import_instance_id, key)
 
         # before running the script, check if everything is already finished.

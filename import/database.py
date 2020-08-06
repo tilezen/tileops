@@ -78,7 +78,7 @@ def ensure_database(run_id, master_user_password):
         security_group = instance_id + '-security-group'
         security_group_id = ensure_vpc_security_group(security_group)
 
-        print "Creating DB instance"
+        print("Creating DB instance")
         rds.create_db_instance(
             DBName='gis',
             DBInstanceIdentifier=instance_id,
@@ -97,7 +97,7 @@ def ensure_database(run_id, master_user_password):
             StorageEncrypted=False,
         )
 
-    print "Waiting for database to come up"
+    print("Waiting for database to come up")
     waiter = rds.get_waiter('db_instance_available')
     waiter.wait(DBInstanceIdentifier=instance_id)
 
@@ -107,7 +107,7 @@ def ensure_database(run_id, master_user_password):
     db = response['DBInstances'][0]
     assert len(db['VpcSecurityGroups']) == 1
 
-    print "Database instance up!"
+    print("Database instance up!")
 
     security_group_id = db['VpcSecurityGroups'][0]['VpcSecurityGroupId']
     host = db['Endpoint']['Address']
@@ -131,7 +131,7 @@ def take_snapshot_and_shutdown(db, run_id):
 
     rds = boto3.client('rds')
 
-    print "Creating database snapshot"
+    print("Creating database snapshot")
     rds.create_db_snapshot(
         DBSnapshotIdentifier=instance_id,
         DBInstanceIdentifier=instance_id,
@@ -145,7 +145,7 @@ def take_snapshot_and_shutdown(db, run_id):
         ),
     )
 
-    print "Created snapshot, shutting down database."
+    print("Created snapshot, shutting down database.")
     rds.delete_db_instance(
         DBInstanceIdentifier=instance_id,
         SkipFinalSnapshot=True,
@@ -153,4 +153,4 @@ def take_snapshot_and_shutdown(db, run_id):
     waiter = rds.get_waiter('db_instance_deleted')
     waiter.wait(DBInstanceIdentifier=instance_id)
 
-    print "Database shut down and deleted."
+    print("Database shut down and deleted.")

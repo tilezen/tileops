@@ -117,7 +117,7 @@ class CoordSet(object):
         self.drop_over_bounds = drop_over_bounds
 
         self.zooms = {}
-        for z in xrange(min_zoom, max_zoom + 1):
+        for z in range(min_zoom, max_zoom + 1):
             self.zooms[z] = BitSet(z)
 
     def _zoom_for(self, coord):

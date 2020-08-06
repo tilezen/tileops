@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     if region is None:
         import sys
-        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     batch = boto3.client('batch')

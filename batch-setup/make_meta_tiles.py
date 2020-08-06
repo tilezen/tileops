@@ -78,7 +78,7 @@ class MissingTileFinder(object):
         max_keys_per_chunk = 1000
 
         print("Deleting old logs.")
-        for idx in xrange(0, len(keys), max_keys_per_chunk):
+        for idx in range(0, len(keys), max_keys_per_chunk):
             chunk = keys[idx:idx+max_keys_per_chunk]
             response = self.s3.delete_objects(
                 Bucket=self.missing_bucket,
@@ -236,8 +236,8 @@ class _JobSizer(object):
         width = 1 << dz
 
         size = 0
-        for dx in xrange(width):
-            for dy in xrange(width):
+        for dx in range(width):
+            for dy in range(width):
                 coord = Coordinate(
                     zoom=self.rawr_zoom,
                     column=((parent.column << dz) + dx),
@@ -274,11 +274,11 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     # pending tasks. and when something goes wrong, the stacktrace isn't buried
     # in a million others.
     num_coords = 1 << group_zoom
-    for x in xrange(num_coords):
+    for x in range(num_coords):
         # kick off tasks async. each one knows its own coordinate, so we only
         # need to track the handle to know when its finished.
         tasks = []
-        for y in xrange(num_coords):
+        for y in range(num_coords):
             coord = Coordinate(zoom=group_zoom, column=x, row=y)
             tasks.append(p.apply_async(job_sizer, (coord,)))
 
@@ -341,7 +341,7 @@ class TileRenderer(object):
             self.split_zoom, self.zoom_max, self.big_jobs)
 
     def render(self, num_retries, lense):
-        for retry_number in xrange(0, num_retries):
+        for retry_number in range(0, num_retries):
             with self._missing() as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
@@ -421,7 +421,7 @@ if __name__ == '__main__':
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print "ERROR: Need environment variable AWS_DEFAULT_REGION to be set."
+        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     # check that metatile_size is within a sensible range
