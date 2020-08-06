@@ -1,8 +1,8 @@
 package cmp
 
 import (
-	"tzops/go/pkg/coord"
-	"tzops/go/pkg/coord/gen"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/coord/gen"
 )
 
 // FindMissingTiles compares two coordinate generators to find the missing tiles.

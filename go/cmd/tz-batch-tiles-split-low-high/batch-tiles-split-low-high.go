@@ -10,8 +10,8 @@ import (
 	"os"
 	"sync"
 
-	"tzops/go/pkg/cmd"
-	"tzops/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/cmd"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 )
 
 func mustOpenForWriting(path string) io.WriteCloser {

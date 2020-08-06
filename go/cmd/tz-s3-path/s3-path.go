@@ -4,9 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"tzops/go/pkg/cmd"
-	"tzops/go/pkg/coord"
-	"tzops/go/pkg/s3"
+
+	"github.com/tilezen/tileops.git/go/pkg/cmd"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/s3"
 )
 
 func main() {

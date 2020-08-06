@@ -1,8 +1,8 @@
 package s3
 
 import (
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 	"testing"
-	"tzops/go/pkg/coord"
 )
 
 func TestParseCoordFromKey(t *testing.T) {

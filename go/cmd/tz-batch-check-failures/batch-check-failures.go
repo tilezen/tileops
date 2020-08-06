@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"tzops/go/pkg/cmd"
+	"github.com/tilezen/tileops.git/go/pkg/cmd"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

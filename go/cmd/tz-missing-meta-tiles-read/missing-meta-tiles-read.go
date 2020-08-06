@@ -8,10 +8,10 @@ import (
 	"io"
 	"os"
 
-	"tzops/go/pkg/cmd"
-	"tzops/go/pkg/coord"
-	"tzops/go/pkg/coord/gen"
-	"tzops/go/pkg/util"
+	"github.com/tilezen/tileops.git/go/pkg/cmd"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/coord/gen"
+	"github.com/tilezen/tileops.git/go/pkg/util"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

@@ -1,34 +1,18 @@
 Go tileops commands
 ===================
 
-Collection of utility commands.
+Collection of utility commands to support Tilezen build operations.
 
 Install
 -------
 
 ### tldr
 
-    git clone git@github.com:tilezen/tileops.git $GOPATH/src/tzops
-    cd $GOPATH/src/tzops/go
     go install ./...
 
-### GOPATH
+### Go Modules
 
-Every golang project needs to have its `$GOPATH` setup properly. Fundamentally, this means that when a package is imported, the locations in the `$GOPATH` are scanned to find the package.
-
-For example:
-
-    import "tzops/go/coord"
-
-will expect to find the package in:
-
-    $GOPATH/src/tzops/go/coord
-
-#### Recommended organization
-
-It's recommended that a single path in `$GOPATH` be used, (which the above example commands expect), and that the repository itself be cloned there. If you'd like to have the code organized in a different location for editing purposes, it's best to symlink into that location from the `$GOPATH`. Some `go` tools don't work well with symlinks, and linking this way helps avoid those problems.
-
-If you do want to keep the source somewhere else, then you will need to make sure to use the local relative install (`go install ./...`) as an absolute one (`go install tzops/go/...`) will fail.
+The `go install` command will use [Go Modules](https://blog.golang.org/using-go-modules) to download the dependencies for the commands. 
 
 Commands
 --------

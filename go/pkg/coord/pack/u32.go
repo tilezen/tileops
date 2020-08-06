@@ -2,7 +2,7 @@ package pack
 
 import (
 	"fmt"
-	"tzops/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 )
 
 // ToU32 will pack a coordinate into a u32. The maximum zoom handled is 14.

@@ -4,8 +4,8 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	tzc "github.com/tilezen/tileops.git/go/pkg/coord"
 	"strings"
-	tzc "tzops/go/pkg/coord"
 )
 
 // specific logic around s3, eg understanding our tile paths and
