@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"tzops/go/pkg/coord"
+
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 )
 
 // This contains test utility functions for testing in the pack package

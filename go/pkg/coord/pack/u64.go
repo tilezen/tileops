@@ -2,7 +2,7 @@ package pack
 
 import (
 	"fmt"
-	"tzops/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 )
 
 // ToU64 will pack a coordinate into a u64. The maximum zoom handled is 29.

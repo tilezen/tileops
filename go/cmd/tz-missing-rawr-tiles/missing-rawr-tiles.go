@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/tilezen/tileops.git/go/pkg/cmd"
+	tzc "github.com/tilezen/tileops.git/go/pkg/coord"
+	"github.com/tilezen/tileops.git/go/pkg/coord/cmp"
+	"github.com/tilezen/tileops.git/go/pkg/coord/gen"
+	tzs3 "github.com/tilezen/tileops.git/go/pkg/s3"
 	"os"
 	"sort"
-	"tzops/go/pkg/cmd"
-	tzc "tzops/go/pkg/coord"
-	"tzops/go/pkg/coord/cmp"
-	"tzops/go/pkg/coord/gen"
-	tzs3 "tzops/go/pkg/s3"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

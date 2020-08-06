@@ -2,8 +2,8 @@ package pack
 
 import (
 	"fmt"
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 	"math/bits"
-	"tzops/go/pkg/coord"
 )
 
 // ToU32Var will pack the coordinate into a u32. The max coordinate zoom that

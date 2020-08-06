@@ -1,8 +1,8 @@
 package gen
 
 import (
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 	"math"
-	"tzops/go/pkg/coord"
 )
 
 // Generator provides an interface for yielding successive coordinates.

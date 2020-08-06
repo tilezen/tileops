@@ -1,9 +1,9 @@
 package pack
 
 import (
+	"github.com/tilezen/tileops.git/go/pkg/coord"
 	"testing"
 	"testing/quick"
-	"tzops/go/pkg/coord"
 )
 
 func TestPackU32VarSymmetric(t *testing.T) {
