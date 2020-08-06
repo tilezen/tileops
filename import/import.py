@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 import argparse
 import database
 import datetime
@@ -43,6 +44,13 @@ parser = argparse.ArgumentParser(
     description='Automated Tilezen database import')
 parser.add_argument('--date', help='Date of the data (i.e: OSM planet file) '
                     'to use. Defaults to the latest available. YYYY-MM-DD.')
+parser.add_argument('--planet-url', help='Instead of downloading the planet '
+                    'file at a given --date, download it from this URL. '
+                    'Requires setting --run-id.')
+parser.add_argument('--planet-md5-url', help='When using --planet-url, '
+                    'optionally set this to download the MD5 checksum of '
+                    'the file at --planet-url to check the md5sum. Leave '
+                    'this unset to skip performing the md5sum.')
 parser.add_argument('bucket', help="S3 Bucket to store flat nodes file in.")
 parser.add_argument('region', help="AWS Region of the bucket to store "
                     "flat nodes.")
@@ -61,14 +69,37 @@ parser.add_argument('--run-id', help='Distinctive run ID to give to '
 
 args = parser.parse_args()
 
-if args.date is None:
-    planet_date = osm.latest_planet_date()
-    print("Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d'))
-else:
-    planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
+if args.planet_url:
+    planet_url = args.planet_url
 
-run_id = args.run_id or planet_date.strftime('%y%m%d')
+    assert args.run_id, '--planet-url requires --run-id'
+    run_id = args.run_id
+
+    print("Downloading planet from %s" % planet_url)
+
+    # set to empty string so it doesn't get serialized as 'None'
+    planet_md5_url = args.planet_md5_url or ""
+else:
+    if args.date is None:
+        planet_date = osm.latest_planet_date()
+        print("Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d'))
+    else:
+        planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
+
+    planet_url = "http://s3.amazonaws.com/osm-pds/{planet_year}/planet-{planet_date}.osm.pbf".format(
+        planet_year=planet_date.year,
+        planet_date=planet_date.strftime('%y%m%d'),
+    )
+    planet_md5_url = "http://s3.amazonaws.com/osm-pds/{planet_year}/planet-{planet_date}.osm.pbf.md5".format(
+        planet_year=planet_date.year,
+        planet_date=planet_date.strftime('%y%m%d'),
+    )
+
+    run_id = args.run_id or planet_date.strftime('%y%m%d')
 assert_run_id_format(run_id)
+
+# calculate the filename to use when downloading the planet file
+planet_file = urlparse(planet_url).path.rsplit("/", 1)[-1]
 
 # if there's a snapshot already, then exit.
 assert_no_snapshot(run_id)
@@ -89,7 +120,7 @@ else:
 
 
 osm2pgsql.ensure_import(
-    run_id, planet_date, db, getattr(args, 'iam-instance-profile'),
+    run_id, planet_url, planet_md5_url, planet_file, db, getattr(args, 'iam-instance-profile'),
     args.bucket, args.region, ip_addr, args.vector_datasource_version)
 
 database.take_snapshot_and_shutdown(db, run_id)
