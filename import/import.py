@@ -77,7 +77,8 @@ if args.planet_url:
 
     print("Downloading planet from %s" % planet_url)
 
-    planet_md5_url = args.planet_md5_url
+    # set to empty string so it doesn't get serialized as 'None'
+    planet_md5_url = args.planet_md5_url or ""
 else:
     if args.date is None:
         planet_date = osm.latest_planet_date()

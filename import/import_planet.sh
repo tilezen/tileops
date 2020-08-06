@@ -87,7 +87,7 @@ if [[ ! -f "planet/${PLANET_FILE}" ]]; then
     cd planet/
     wget -q "${PLANET_URL}"
 
-    if [[ -z "${PLANET_MD5_URL}" ]]; then
+    if [[ -n "${PLANET_MD5_URL}" ]]; then
         wget -q "${PLANET_MD5_URL}"
     fi
 
