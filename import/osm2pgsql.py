@@ -1,5 +1,5 @@
 import boto3
-from StringIO import StringIO
+from io import StringIO
 from paramiko.rsakey import RSAKey
 from botocore.exceptions import ClientError
 from contextlib import contextmanager
@@ -305,7 +305,7 @@ class Instance(object):
 
                 yield ssh
 
-        except StandardError as e:
+        except Exception as e:
             raise RuntimeError("ERROR: %s (on ubuntu@%s)" % (e, ip))
 
         finally:
@@ -430,8 +430,9 @@ def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
 
 
 def ensure_import(
-        run_id, planet_date, db, iam_instance_profile, bucket, aws_region,
-        ip_addr, vector_datasource_version='master'):
+        run_id, planet_url, planet_md5_url, planet_file,
+        db, iam_instance_profile, bucket, aws_region, ip_addr,
+        vector_datasource_version='master'):
     ec2 = boto3.client('ec2')
 
     # is there already an import instance running?
@@ -498,8 +499,9 @@ def ensure_import(
         # run the script on the host
         instance.repeatedly(
             'import_planet.sh',
-            planet_year=planet_date.year,
-            planet_date=planet_date.strftime('%y%m%d'),
+            planet_url=planet_url,
+            planet_md5_url=planet_md5_url,
+            planet_file=planet_file,
             db_pass=db.password,
             db_host=db.host,
             db_port=db.port,

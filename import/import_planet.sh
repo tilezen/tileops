@@ -1,7 +1,8 @@
 #!/bin/bash
 
-PLANET_YEAR='%(planet_year)d'
-PLANET_DATE='%(planet_date)s'
+PLANET_URL='%(planet_url)s'
+PLANET_MD5_URL='%(planet_md5_url)s'
+PLANET_FILE='%(planet_file)s'
 PGPASSWORD='%(db_pass)s'
 export PGHOST='%(db_host)s'
 export PGPORT='%(db_port)d'
@@ -79,20 +80,27 @@ if [[ ! -x $OSM2PGSQL ]]; then
 fi
 
 # if there's no planet, then download it
-PLANET="planet-${PLANET_DATE}.osm.pbf"
-if [[ ! -f "planet/${PLANET}" ]]; then
+if [[ ! -f "planet/${PLANET_FILE}" ]]; then
     echo "downloading planet" > $STATUS
     rm -rf planet
     mkdir planet
     cd planet/
-    wget -q "http://s3.amazonaws.com/osm-pds/${PLANET_YEAR}/${PLANET}"
-    wget -q "http://s3.amazonaws.com/osm-pds/${PLANET_YEAR}/${PLANET}.md5"
+    wget -q "${PLANET_URL}"
+
+    if [[ -z "${PLANET_MD5_URL}" ]]; then
+        wget -q "${PLANET_MD5_URL}"
+    fi
+
     cd ..
 fi
 
-# always check the planet checksum!
-echo "checking planet file MD5" > $STATUS
-(cd planet && md5sum --check "${PLANET}.md5")
+# check the md5sum if the md5 file was downloaded
+if [[ -f "planet/${PLANET_FILE}.md5" ]]; then
+    echo "checking planet file MD5" > $STATUS
+    (cd planet && md5sum --check "${PLANET_FILE}.md5")
+else
+    echo "skipping MD5 check"
+fi
 
 # check out vector-datasource
 if [[ ! -d vector-datasource ]]; then
