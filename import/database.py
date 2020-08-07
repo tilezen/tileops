@@ -55,10 +55,14 @@ def ensure_vpc_security_group(security_group_name):
         sg_id = response['GroupId']
 
     # allow the security group to connect to the database
-    ec2.authorize_security_group_ingress(
-        GroupId=sg_id,
-        SourceSecurityGroupName=security_group_name,
-    )
+    try:
+        ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            SourceSecurityGroupName=security_group_name,
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+            raise
 
     return sg_id
 
