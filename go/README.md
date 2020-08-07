@@ -8,11 +8,13 @@ Install
 
 ### tldr
 
+    export GOPATH=$HOME/go
+    export PATH=$PATH:$GOPATH/bin
     go install ./...
 
 ### Go Modules
 
-The `go install` command will use [Go Modules](https://blog.golang.org/using-go-modules) to download the dependencies for the commands. 
+The `go install` command will use [Go Modules](https://blog.golang.org/using-go-modules) to download the dependencies for the commands.
 
 Commands
 --------
