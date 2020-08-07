@@ -73,12 +73,13 @@ def ensure_database(run_id, master_user_password):
             "A snapshot with ID %r already exists, suggesting that this "
             "import has already completed. If you are sure that you want "
             "to re-run this import in its entirety, please delete that "
-            "snapshot first." % (instance_id))
+            "snapshot first." % instance_id)
+
+    security_group = instance_id + '-security-group'
+    security_group_id = ensure_vpc_security_group(security_group)
+    print("Database is using security group %s" % security_group_id)
 
     if not does_instance_exist(rds, instance_id):
-        security_group = instance_id + '-security-group'
-        security_group_id = ensure_vpc_security_group(security_group)
-
         print("Creating DB instance")
         rds.create_db_instance(
             DBName='gis',
@@ -110,7 +111,6 @@ def ensure_database(run_id, master_user_password):
 
     print("Database instance up!")
 
-    security_group_id = db['VpcSecurityGroups'][0]['VpcSecurityGroupId']
     host = db['Endpoint']['Address']
     port = db['Endpoint']['Port']
     dbname = db['DBName']
