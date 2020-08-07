@@ -383,7 +383,7 @@ class Instance(object):
                         'cat %s.status' % script_file)
                     stdin.close()
                     stderr.read()
-                    status = stdout.read().rstrip()
+                    status = stdout.read().rstrip().decode('utf8')
 
                     print("[%s] Import status: %r" % (time_now, status))
                     if status == "finished":
