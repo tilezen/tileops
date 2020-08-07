@@ -7,15 +7,32 @@ The process has to go through three stages:
 2. Using replicas started from the snapshot to "render" RAWR tiles using AWS Batch.
 3. Using the replicas and RAWR tiles to render meta tiles, suitable for use with Tapalcatl(-py).
 
-The first thing to do, locally, is make sure that the Go commands have been built. See [the Go README](go/README.md) for details on how to do this. The Python environment will also need to be set up, see [the Python README](doc/import/README.md). You will also need to have the [`raw_tiles`](https://github.com/tilezen/raw_tiles), [`tilequeue`](https://github.com/tilezen/tilequeue) and [`vector-datasource`](https://github.com/tilezen/vector-datasource) projects checked out as siblings to the `tileops` directory, i.e: accessible as `../raw_tiles/` and so forth from this README.
+The first thing to do, locally, is make sure that the Go commands have been built. See [the Go README](go/README.md) for details on how to do this. The Python environment will also need to be set up, see [the Python README](doc/python_setup.md). You will also need to have the [`raw_tiles`](https://github.com/tilezen/raw_tiles), [`tilequeue`](https://github.com/tilezen/tilequeue) and [`vector-datasource`](https://github.com/tilezen/vector-datasource) projects checked out as siblings to the `tileops` directory, i.e: accessible as `../raw_tiles/` and so forth from this README.
 
 Rendering meta tiles can be done with the following commands:
 
 ```sh
-python import/import.py --find-ip-address meta --date $DATE $TILE_ASSET_BUCKET $AWS_DEFAULT_REGION $TILE_ASSET_ROLE_ARN $DB_PASSWORD
-python batch-setup/make_tiles.py --num-db-replicas 10 $PLANET_DATE $RAWR_BUCKET $META_BUCKET $DB_PASSWORD
-python batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml $RAWR_BUCKET $DATE_PREFIX
-python batch-setup/make_meta_tiles.py --date-prefix $DATE_PREFIX --missing-bucket $MISSING_BUCKET $RAWR_BUCKET $META_BUCKET $DATE_PREFIX
+python import/import.py --find-ip-address meta \
+                        --date $DATE \
+                        $TILE_ASSET_BUCKET \
+                        $AWS_DEFAULT_REGION \
+                        $TILE_ASSET_ROLE_ARN \
+                        $DB_PASSWORD
+
+python batch-setup/make_tiles.py --num-db-replicas 10 \
+                                 $PLANET_DATE \
+                                 $RAWR_BUCKET \
+                                 $META_BUCKET \
+                                 $DB_PASSWORD
+
+python batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml \
+                                      $RAWR_BUCKET $DATE_PREFIX
+
+python batch-setup/make_meta_tiles.py --date-prefix $DATE_PREFIX \
+                                      --missing-bucket $MISSING_BUCKET \
+                                      $RAWR_BUCKET \
+                                      $META_BUCKET \
+                                      $DATE_PREFIX
 ```
 
 Note that you will need to set several environment variables in the shell which executes this:
