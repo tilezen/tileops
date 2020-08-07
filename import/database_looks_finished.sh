@@ -6,6 +6,11 @@ export PGPORT='%(db_port)d'
 export PGDATABASE='%(db_name)s'
 export PGUSER='%(db_user)s'
 
+# make sure psql is installed
+sudo DEBIAN_FRONTEND=noninteractive apt update
+sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -q postgresql-client
+
 # we expect to have data in all these tables, if we ran to completion.
 # NOTE: planet_osm_nodes is _intentionally_ missing, since we run with
 # the external flat nodes file for node storage, so the table ought to
