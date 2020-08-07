@@ -40,18 +40,19 @@ def ensure_vpc_security_group(security_group_name):
         response = ec2.describe_security_groups(
             GroupNames=[security_group_name])
         if len(response['SecurityGroups']) == 1:
-            return response['SecurityGroups'][0]['GroupId']
+            sg_id = response['SecurityGroups'][0]['GroupId']
 
     except ClientError as e:
         if e.response['Error']['Code'] != 'InvalidGroup.NotFound':
             raise
 
-    # security group doesn't exist - create it.
-    response = ec2.create_security_group(
-        Description='Security group for Tilezen database',
-        GroupName=security_group_name,
-    )
-    sg_id = response['GroupId']
+    # if security group doesn't exist - create it.
+    if not sg_id:
+        response = ec2.create_security_group(
+            Description='Security group for Tilezen database',
+            GroupName=security_group_name,
+        )
+        sg_id = response['GroupId']
 
     # allow the security group to connect to the database
     ec2.authorize_security_group_ingress(
