@@ -1,4 +1,5 @@
 import boto3
+import os
 from io import StringIO
 from paramiko.rsakey import RSAKey
 from botocore.exceptions import ClientError
@@ -61,9 +62,13 @@ def reset_database(instance, db):
 
 
 def login_key(run_id):
-        filename = "import-private-key-%s.pem" % (run_id,)
-        with open(filename) as fh:
-            return RSAKey.from_private_key(fh)
+    filename = "import-private-key-%s.pem" % (run_id,)
+
+    if not os.path.exists(filename):
+        return None
+
+    with open(filename) as fh:
+        return RSAKey.from_private_key(fh)
 
 
 def create_login_key(ec2, run_id, key_pair_name):
