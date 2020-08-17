@@ -85,7 +85,7 @@ def delete_job_queue(batch, job_queue, terminate):
 def terminate_instances_by_tag(tags):
     ec2 = boto3.client('ec2')
     filters = []
-    for k, v in tags.iteritems():
+    for k, v in tags.items():
         filters.append(dict(
             Name='tag:' + k,
             Values=[v],

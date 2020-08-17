@@ -97,7 +97,7 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
     # above to avoid double encoding - the stuff in overrides should already
     # be encoded.
     name_as_env_prefix = name.upper().replace('-', '_') + '__'
-    for k, v in overrides.iteritems():
+    for k, v in overrides.items():
         if k.startswith(name_as_env_prefix):
             new_k = k[len(name_as_env_prefix):]
             env[new_k] = v
