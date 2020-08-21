@@ -36,6 +36,7 @@ def does_instance_exist(rds, instance_id):
 def ensure_vpc_security_group(security_group_name):
     ec2 = boto3.client('ec2')
 
+    sg_id = None
     try:
         response = ec2.describe_security_groups(
             GroupNames=[security_group_name])

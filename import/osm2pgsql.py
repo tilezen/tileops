@@ -394,7 +394,7 @@ class Instance(object):
 
                 except OSError as e:
                     if e.errno == errno.ENOENT:
-                        print("[%s] Script still starting up..." % (time_now))
+                        print("[%s] Script still starting up..." % time_now)
                     else:
                         raise
 
