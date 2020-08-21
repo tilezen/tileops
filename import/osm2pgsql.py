@@ -1,6 +1,6 @@
 import boto3
 import os
-from io import StringIO
+from io import BytesIO
 from paramiko.rsakey import RSAKey
 from botocore.exceptions import ClientError
 from contextlib import contextmanager
@@ -80,7 +80,7 @@ def create_login_key(ec2, run_id, key_pair_name):
 
     response = ec2.create_key_pair(KeyName=key_pair_name)
     pem = response['KeyMaterial']
-    key = RSAKey.from_private_key(StringIO(pem))
+    key = RSAKey.from_private_key(BytesIO(pem))
 
     filename = "import-private-key-%s.pem" % (run_id,)
     with open(filename, 'w') as fh:
