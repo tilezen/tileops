@@ -1,4 +1,4 @@
-from urllib.parse import urlparse
+from six.moves.urllib.parse import urlparse
 import argparse
 import database
 import datetime
@@ -23,7 +23,7 @@ def assert_no_snapshot(run_id):
             "A snapshot with ID %r already exists, suggesting that this "
             "import has already completed. If you are sure that you want "
             "to re-run this import in its entirety, please delete that "
-            "snapshot first." % (snapshot_id))
+            "snapshot first." % snapshot_id)
         sys.exit(0)
 
 
@@ -36,7 +36,7 @@ def assert_run_id_format(run_id):
         print("Run ID %r is badly formed. Run IDs may only contain ASCII "
               "letters and numbers, dashes and underscores. Dashes or "
               "underscores may not appear at the beginning or end of the "
-              "run ID." % (run_id,))
+              "run ID." % run_id)
         sys.exit(1)
 
 
