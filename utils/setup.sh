@@ -69,7 +69,7 @@ export AWS_DEFAULT_REGION="${REGION}"
 
 title "Creating S3 buckets"
 for func in tile-assets rawr-tiles missing-tiles meta-tiles; do
-   aws s3 mb "s3://${PREFIX}-${func}-${REGION}" --region "${REGION}" || error_exit
+   aws s3 mb "s3://${PREFIX}-${func}-${REGION}" --region "${REGION}" || echo "Failed to create s3://${PREFIX}-${func}-${REGION}"
 done
 
 title "Installing Go dependencies"

@@ -245,6 +245,7 @@ def start_osm2pgsql_instance(
                 ResourceType='instance',
                 Tags=[
                     dict(Key='osm2pgsql-import', Value=run_id),
+                    dict(Key='Name', Value='osm2pgsql Runner'),
                 ],
             ),
         ],

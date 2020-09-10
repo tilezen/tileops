@@ -448,7 +448,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         'Script to automate the tile production system.')
-    parser.add_argument('date', help='Planet date, YYMMDD')
+    parser.add_argument('planet_url', help='URL to an OSM Planet file')
+    parser.add_argument('run_id', help='Distinctive run ID to give to '
+                        'this build.')
     parser.add_argument('--region', help='AWS region to use. This must be '
                         'provided if the environment variable '
                         'AWS_DEFAULT_REGION is not set.')
@@ -470,7 +472,7 @@ if __name__ == '__main__':
     parser.add_argument('--meta-bucket', help='Override default name for '
                         'meta tiles bucket.')
     parser.add_argument('--profile-name', help='Profile name to use. Default '
-                        'is "tps-YYMMDD" with planet date.')
+                        'is "tps-runid" with given run ID.')
     parser.add_argument('--ec2-key-name', help='Provide this to set an EC2 '
                         'SSH key name. If you do not want to log into the '
                         'instance, you do not need to provide one.')
@@ -490,8 +492,8 @@ if __name__ == '__main__':
                         'password.')
     parser.add_argument('--db-password-secret-name', help='The AWS '
                         'SecretsManager name for the database password. '
-                        'Defaults to a dated name like '
-                        '"TilesDatabasePasswordYYMMDD".')
+                        'Defaults to a name with the run ID like '
+                        '"TilesDatabasePasswordRUNID".')
     parser.add_argument('--sg-allow-this-ip', help='If creating a security '
                         'group, then allow this IP address.',
                         action='store_true')
@@ -510,11 +512,9 @@ if __name__ == '__main__':
     parser.add_argument('--metatile-size', default=8, type=int,
                         help='Metatile size (in 256px tiles).')
     parser.add_argument('--meta-date-prefix', help='Meta tile bucket '
-                        'date prefix, defaults to planet date. You can '
+                        'date prefix, defaults to run ID. You can '
                         'also set the environment variable '
                         'META_DATE_PREFIX.')
-    parser.add_argument('--run-id', help='Distinctive run ID to give to '
-                        'this build. Defaults to planet date YYMMDD.')
     parser.add_argument('--job-env-overrides', default=[], nargs='*',
                         help='Overrides for the Batch job environment.')
     parser.add_argument('--num-db-replicas', default=10, type=int,
@@ -522,9 +522,14 @@ if __name__ == '__main__':
     parser.add_argument('--max-vcpus', default=32768, type=int,
                         help='Number of VCPUs to request in the Batch '
                         'environment')
+    parser.add_argument('--planet-md5-url', help='Override the default '
+                        '<planet-url>.md5 convention to specify an md5 '
+                        'file for the OSM planet file specified by the '
+                        'planet-url argument.')
 
     args = parser.parse_args()
-    planet_date = datetime.strptime(args.date, '%y%m%d')
+
+    planet_md5_url = args.planet_md5_url or args.planet_url + ".md5"
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
@@ -538,8 +543,7 @@ if __name__ == '__main__':
     assert args.metatile_size > 0
     assert args.metatile_size < 100
 
-    run_id = args.run_id or planet_date.strftime('%y%m%d')
-    profile_name = args.profile_name or ('tps-' + run_id)
+    profile_name = args.profile_name or ('tps-' + args.run_id)
 
     def bucket_name(arg_name, bucket_function):
         # command line argument is most important
@@ -566,14 +570,14 @@ if __name__ == '__main__':
     missing_bucket = bucket_name('--missing-bucket', 'missing-tiles')
     meta_bucket = bucket_name('--meta-bucket', 'meta-tiles')
     locations = Locations(
-        Bucket(assets_bucket, 'flat-nodes-' + run_id),
-        Bucket(rawr_bucket, run_id),
-        Bucket(meta_bucket, run_id),
-        Bucket(missing_bucket, run_id),
+        Bucket(assets_bucket, 'flat-nodes-' + args.run_id),
+        Bucket(rawr_bucket, args.run_id),
+        Bucket(meta_bucket, args.run_id),
+        Bucket(missing_bucket, args.run_id),
     )
     meta_date_prefix = (args.meta_date_prefix or
                         os.environ.get('META_DATE_PREFIX') or
-                        run_id)
+                        args.run_id)
 
     iam = boto3.client('iam')
 
@@ -590,8 +594,8 @@ if __name__ == '__main__':
 
     smgr = boto3.client('secretsmanager')
     smgr_name = (args.db_password_secret_name or
-                 ('TilesDatabasePassword' + run_id))
-    smgr_description = 'Tiles database password for %s import' % (run_id,)
+                 ('TilesDatabasePassword' + args.run_id))
+    smgr_description = 'Tiles database password for %s import' % (args.run_id,)
     db_password = generate_or_update_password(
         smgr, args.db_password, smgr_name, smgr_description)
 
@@ -604,8 +608,9 @@ if __name__ == '__main__':
         rawr_bucket=locations.rawr.name,
         meta_bucket=locations.meta.name,
         missing_bucket=locations.missing.name,
-        date_iso=planet_date.strftime('%Y-%m-%d'),
-        run_id=run_id,
+        planet_url=args.planet_url,
+        planet_md5_url=planet_md5_url,
+        run_id=args.run_id,
         raw_tiles_version=args.raw_tiles_version,
         tilequeue_version=args.tilequeue_version,
         vector_datasource_version=args.vector_datasource_version,
@@ -639,10 +644,10 @@ if __name__ == '__main__':
         UserData=provision_base64,
         TagSpecifications=[dict(
             ResourceType='instance',
-            Tags=[dict(
-                Key='tps-instance',
-                Value=run_id,
-            )],
+            Tags=[
+                dict(Key='tps-instance', Value=args.run_id),
+                dict(Key='Name', Value='Tileops Runner'),
+            ],
         )],
     )
     if args.ec2_key_name:
