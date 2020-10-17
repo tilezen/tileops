@@ -146,7 +146,7 @@ def take_snapshot_and_shutdown(db, run_id):
     waiter.wait(
         DBSnapshotIdentifier=instance_id,
         WaiterConfig=dict(
-            Delay=60,
+            Delay=120,
             MaxAttempts=300,
         ),
     )
