@@ -232,7 +232,7 @@ def start_osm2pgsql_instance(
             ),
         )],
         ImageId=ami_id,
-        InstanceType='r4.2xlarge',
+        InstanceType='r5.4xlarge',
         KeyName=key_pair_name,
         SecurityGroupIds=[security_group_id, allow_this_ip],
         EbsOptimized=True,
