@@ -121,7 +121,7 @@ compute_env_name = 'compute-env-' + run_id
 job_queue_name = 'job-queue-' + run_id
 vpc_id = vpc_of_sg(db_sg_id)
 
-batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name,
+batch_setup(region, run_id, vpc_id, [db_sg_id], compute_env_name, job_queue_name,
             args.max_vcpus)
 
 # build docker images & upload

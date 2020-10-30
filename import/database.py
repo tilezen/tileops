@@ -102,6 +102,10 @@ def ensure_database(run_id, master_user_password):
             PubliclyAccessible=False,
             StorageType='gp2',
             StorageEncrypted=False,
+            Tags=[
+                dict(Key='cost_sub_feature', Value="Tile Build"),
+                dict(Key='cost_resource_group', Value=run_id),
+            ],
         )
 
     print("Waiting for database to come up")
@@ -141,6 +145,10 @@ def take_snapshot_and_shutdown(db, run_id):
     rds.create_db_snapshot(
         DBSnapshotIdentifier=instance_id,
         DBInstanceIdentifier=instance_id,
+        Tags=[
+            dict(Key='cost_sub_feature', Value="Tile Build"),
+            dict(Key='cost_resource_group', Value=run_id),
+        ],
     )
     waiter = rds.get_waiter('db_snapshot_completed')
     waiter.wait(

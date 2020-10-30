@@ -246,6 +246,8 @@ def start_osm2pgsql_instance(
                 Tags=[
                     dict(Key='osm2pgsql-import', Value=run_id),
                     dict(Key='Name', Value='osm2pgsql Runner'),
+                    dict(Key='cost_sub_feature', Value="Tile Build"),
+                    dict(Key='cost_resource_group', Value=run_id),
                 ],
             ),
         ],

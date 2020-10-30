@@ -647,6 +647,8 @@ if __name__ == '__main__':
             Tags=[
                 dict(Key='tps-instance', Value=args.run_id),
                 dict(Key='Name', Value='Tileops Runner'),
+                dict(Key='cost_sub_feature', Value="Tile Build"),
+                dict(Key='cost_resource_group', Value=args.run_id),
             ],
         )],
     )
