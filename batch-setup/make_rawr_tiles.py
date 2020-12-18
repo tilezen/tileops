@@ -93,6 +93,24 @@ def wc_line(filename):
     return count
 
 
+def head_lines(filename, n_lines):
+    """
+    Returns an array of the first n_lines lines of filename, similar to the command
+    line utility `head -n`.
+    """
+
+    sample = []
+
+    with open(filename, 'r') as fh:
+        try:
+            for _ in range(n_lines):
+                sample.append(next(fh).strip())
+        except StopIteration:
+            pass
+
+    return sample
+
+
 def any_jobs_with_status(batch, job_queue, status):
     """
     Returns True if there are any jobs in the queue with the same status.

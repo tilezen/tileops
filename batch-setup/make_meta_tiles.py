@@ -2,7 +2,7 @@ from batch import Buckets
 from batch import run_go
 import yaml
 from make_rawr_tiles import wait_for_jobs_to_finish
-from make_rawr_tiles import wc_line
+from make_rawr_tiles import wc_line, head_lines
 from run_id import assert_run_id_format
 from contextlib import contextmanager
 from collections import namedtuple
@@ -354,7 +354,9 @@ class TileRenderer(object):
 
                 # enqueue jobs for missing tiles
                 if count > 0:
-                    print("Enqueueing %s tiles" % (lense.description,))
+                    sample = head_lines(missing_tile_file, 10)
+                    print("Enqueueing %d %s tiles (e.g. %s)" %
+                          (count, lense.description, ', '.join(sample)))
                     enqueue_tiles(lense.config, missing_tile_file,
                                   check_metatile_exists)
 
@@ -362,9 +364,10 @@ class TileRenderer(object):
             with self._missing() as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
+                sample = head_lines(missing_tile_file, 10)
                 raise RuntimeError(
-                    "FAILED! %d %s still missing after %d tries"
-                    % (count, lense.description, num_retries))
+                    "FAILED! %d %s still missing after %d tries (e.g. %s)"
+                    % (count, lense.description, num_retries, ', '.join(sample)))
 
 
 if __name__ == '__main__':
