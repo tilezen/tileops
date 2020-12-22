@@ -165,6 +165,12 @@ def take_snapshot_and_shutdown(db, run_id):
         SkipFinalSnapshot=True,
     )
     waiter = rds.get_waiter('db_instance_deleted')
-    waiter.wait(DBInstanceIdentifier=instance_id)
+    waiter.wait(
+        DBInstanceIdentifier=instance_id,
+        WaiterConfig=dict(
+            Delay=60,
+            MaxAttempts=180,
+        )
+    )
 
     print("Database shut down and deleted.")
