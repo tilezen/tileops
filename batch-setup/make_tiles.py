@@ -121,7 +121,7 @@ compute_env_name = 'compute-env-' + run_id
 job_queue_name = 'job-queue-' + run_id
 vpc_id = vpc_of_sg(db_sg_id)
 
-batch_setup(region, vpc_id, [db_sg_id], compute_env_name, job_queue_name,
+batch_setup(region, run_id, vpc_id, [db_sg_id], compute_env_name, job_queue_name,
             args.max_vcpus)
 
 # build docker images & upload
@@ -134,8 +134,8 @@ buckets = Buckets(args.rawr_bucket, meta_buckets,
 # raised if jobs fail with out-of-memory errors.
 memory = {
     'rawr-batch': 8192,
-    'meta-batch': 8192,  # 4096,
-    'meta-low-zoom-batch': 8192,  # 2048,
+    'meta-batch': 12288,  # 12 GiB
+    'meta-low-zoom-batch': 12288,  # 12 GiB
     'missing-meta-tiles-write': 1024,
 }
 # defaults for the moment. TODO: make them configurable from the command

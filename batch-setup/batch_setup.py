@@ -67,7 +67,7 @@ def find_policy(boto_iam, policy_name):
     return None
 
 
-def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
+def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmentName,
                 jobQueueName, max_vcpus):
     """
     Set up AWS Batch with a Compute Environment and Job Queue.
@@ -196,11 +196,13 @@ def batch_setup(region_name, vpc_id, securityGroupIds, computeEnvironmentName,
                 minvCpus=0,
                 maxvCpus=max_vcpus,
                 desiredvCpus=0,
-                instanceTypes=["optimal"],
+                instanceTypes=["r5"],
                 # although this is called "instanceRole", it really wants an instance _profile_ ARN.
                 instanceRole=instanceProfileArn,
                 tags={
-                    'Name': 'Tiles Rendering'
+                    'Name': 'Tiles Rendering',
+                    'cost_sub_feature': "Tile Build",
+                    'cost_resource_group': run_id,
                 },
                 bidPercentage=60,
                 spotIamFleetRole=spotIamFleetRoleArn,

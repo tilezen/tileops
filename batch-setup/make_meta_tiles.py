@@ -2,7 +2,7 @@ from batch import Buckets
 from batch import run_go
 import yaml
 from make_rawr_tiles import wait_for_jobs_to_finish
-from make_rawr_tiles import wc_line
+from make_rawr_tiles import wc_line, head_lines
 from run_id import assert_run_id_format
 from contextlib import contextmanager
 from collections import namedtuple
@@ -330,11 +330,12 @@ class LowZoomLense(object):
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max):
+    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, allowed_missing_tiles=0):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
         self.zoom_max = zoom_max
+        self.allowed_missing_tiles = allowed_missing_tiles
 
     def _missing(self):
         return self.tile_finder.missing_tiles_split(
@@ -346,15 +347,20 @@ class TileRenderer(object):
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
 
-                if count == 0:
-                    print("All %s done!" % (lense.description,))
+                if count <= self.allowed_missing_tiles:
+                    sample = head_lines(missing_tile_file, 10)
+                    print("All %s done with %d missing tiles, %d allowed. e.g. %s" %
+                          (lense.description, count, self.allowed_missing_tiles,
+                           ', '.join(sample)))
                     break
 
                 check_metatile_exists = retry_number > 0
 
                 # enqueue jobs for missing tiles
                 if count > 0:
-                    print("Enqueueing %s tiles" % (lense.description,))
+                    sample = head_lines(missing_tile_file, 10)
+                    print("Enqueueing %d %s tiles (e.g. %s)" %
+                          (count, lense.description, ', '.join(sample)))
                     enqueue_tiles(lense.config, missing_tile_file,
                                   check_metatile_exists)
 
@@ -362,9 +368,10 @@ class TileRenderer(object):
             with self._missing() as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
+                sample = head_lines(missing_tile_file, 10)
                 raise RuntimeError(
-                    "FAILED! %d %s still missing after %d tries"
-                    % (count, lense.description, num_retries))
+                    "FAILED! %d %s still missing after %d tries (e.g. %s)"
+                    % (count, lense.description, num_retries, ', '.join(sample)))
 
 
 if __name__ == '__main__':
@@ -405,6 +412,9 @@ if __name__ == '__main__':
                         help='If all the RAWR tiles grouped together are '
                         'bigger than this, split the job up into individual '
                         'RAWR tiles.')
+    parser.add_argument('--allowed-missing-tiles', default=2, type=int,
+                        help='The maximum number of missing metatiles allowed '
+                        'to continue the build process.')
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -436,7 +446,7 @@ if __name__ == '__main__':
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 

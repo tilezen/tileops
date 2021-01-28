@@ -86,7 +86,7 @@ def parse_next_replica_id(databases):
         return 1
 
 
-def start_database_from_snapshot(rds, snapshot_id, replica_num):
+def start_database_from_snapshot(rds, run_id, snapshot_id, replica_num):
     instance_id = '%s-rr%03d' % (snapshot_id, replica_num)
 
     print("Starting instance %r" % instance_id)
@@ -94,6 +94,10 @@ def start_database_from_snapshot(rds, snapshot_id, replica_num):
         DBInstanceIdentifier=instance_id,
         DBSnapshotIdentifier=snapshot_id,
         PubliclyAccessible=False,
+        Tags=[
+            dict(Key='cost_sub_feature', Value="Tile Build"),
+            dict(Key='cost_resource_group', Value=run_id),
+        ],
     )
 
     return result['DBInstance']['DBInstanceIdentifier']
@@ -131,7 +135,7 @@ def ensure_dbs(run_id, num_instances):
 
         for i in range(0, num_new_instances):
             replica_id = start_database_from_snapshot(
-                rds, snapshot_id, next_replica_id + i)
+                rds, run_id, snapshot_id, next_replica_id + i)
             new_databases.append(replica_id)
 
         waiter = rds.get_waiter('db_instance_available')
