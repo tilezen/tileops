@@ -113,7 +113,8 @@ def cmd_for_image(name, region):
                '--run_id', 'Ref::run_id']
 
     elif name == 'meta-batch':
-        cmd = ['tilequeue', 'meta-tile',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+               'tilequeue', 'meta-tile',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
                '--run_id', 'Ref::run_id']
