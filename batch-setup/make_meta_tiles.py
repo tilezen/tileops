@@ -20,7 +20,6 @@ from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
 
-
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
 
 
@@ -323,6 +322,73 @@ class LowZoomLense(object):
 
     def missing_file(self, missing):
         return missing.low_zoom_file
+
+
+class TileSpecifier(object):
+    ORDER_KEY = "order"
+    MEM_GB_KEY = "mem_gb"
+
+    """
+    Provides the ability to sort tiles based on an ordering and specify memory reqs
+    """
+
+    def __init__(self, default_mem_gb=8, spec_dict={}):
+        """
+        :param default_mem_gb:
+        :param spec_dict: keys are of form "<zoom>/<x>/<y>" value is a map with keys "mem_gb" and "order".  e.g.
+                {"7/3/10": {"mem_gb": 2.5, "order": 12},
+                "10/12/3": {"mem_gb": 0.3, "order": 10}}
+        """
+        self.default_mem_gb = default_mem_gb
+        self.spec_dict = {}
+
+    def from_ordering_file(self, filename, default_mem_gb=8):
+        """
+        Expects a csv with at least these columns:
+        zoom, x, y, mem_gb
+        The lines in the file should be ordered in the desired queue ordering (e.g. first data line contains first tile to enqueue)
+        :return:
+        TileSpecifier with ordering and memory requirements in filename
+        """
+        import csv
+        with open(filename) as fh:
+            order_idx = 0
+            reader = csv.DictReader(fh)
+            for row in reader:
+                coord = Coordinate(row['zoom'], row['x'], row['y'])
+                self.spec_dict[serialize_coord(coord)] = \
+                    {self.MEM_GB_KEY: row[self.MEM_GB_KEY], self.ORDER_KEY: order_idx}
+                order_idx += 1
+
+    def reorder(self, coord_list):
+        """
+        Using the sort ordering for this specifier, reorders the tiles in coord_list.
+        coords that are in the coord_list that aren't mentioned in the ordering will go first.
+        :return:
+        """
+        return sorted(coord_list, lambda coord: self.get_ordering_val(coord))
+
+    def get_ordering_val(self, coord):
+        """
+        returns ordering location for coord.  The lower it is the earlier in the order.
+        If there is no ordering specified for this coordinate, returns 0
+        """
+        key = serialize_coord(coord)
+        if key in self.spec_dict:
+            return self.spec_dict[key][self.ORDER_KEY]
+
+        return 0
+
+    def get_mem_reqs(self, coord):
+        """
+        returns the specified memory requirements for the coordinate.  If none are specified, returns default_gb
+        """
+        key = serialize_coord(coord)
+        if key in self.spec_dict:
+            val = self.spec_dict[key]
+            return val[self.MEM_GB_KEY]
+        else:
+            return self.default_mem_gb
 
 
 # abstracts away the logic for a re-rendering loop, splitting between high and
