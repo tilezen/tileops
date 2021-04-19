@@ -159,7 +159,7 @@ func main() {
 	flag.StringVar(&destBucket, "dest-bucket", "", "dest s3 bucket to write tiles")
 	flag.StringVar(&destDatePrefix, "dest-date-prefix", "", "dest date prefix to write tiles found")
 	flag.StringVar(&hexPrefix, "hex-prefix", "", "hex prefix for job, must be 3 lowercase hexadecimal characters")
-	flag.UintVar(&concurrency, "concurrency", 16, "number of goroutines listing bucket per hash prefix")
+	flag.UintVar(&concurrency, "concurrency", 4, "number of goroutines listing bucket per hash prefix")
 	flag.StringVar(&region, "region", "us-east-1", "region")
 	flag.StringVar(&keyFormatTypeStr, "key-format-type", "", "Either 'prefix-hash' or 'hash-prefix' to control the order of the date prefix and hash in the src S3 key.")
 	flag.BoolVar(&allBuckets, "all-buckets", false, "If true, check all buckets in list, not just the last one.")
