@@ -296,11 +296,18 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
 
-    args = BatchEnqueueArgs(config_file, None, tile_list_file, None)
+
+    # second arg here instead of third - call tilequeue_batch_enqueue with each line from the tile_list_file
+    # pass the line in as that second arg
+    #override the right place in the config to pass in the right amount of memory
+    args = BatchEnqueueArgs(config_file, "7/10/20", None, None)
     os.environ['TILEQUEUE__BATCH__CHECK-METATILE-EXISTS'] = (
         str(check_metatile_exists).lower())
     with open(args.config) as fh:
         cfg = make_config_from_argparse(fh)
+
+    #cfg is a dict at this point, and you can override the memory part for each tile here.
+    #
     tilequeue_batch_enqueue(cfg, args)
 
 
@@ -446,6 +453,7 @@ if __name__ == '__main__':
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
+    #TG Look at this next!  what is the different - it looks like split_zoom is supposed to help us determine what goes where
     tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))

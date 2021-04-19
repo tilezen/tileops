@@ -111,14 +111,22 @@ def head_lines(filename, n_lines):
     return sample
 
 
+def count_jobs_with_status(batch, job_queue, status):
+    """
+    Returns the count of jobs in this queue with this status
+    """
+
+    response = batch.list_jobs(
+        jobQueue=job_queue, jobStatus=status, maxResults=1)
+    return len(response['jobSummaryList'])
+
+
 def any_jobs_with_status(batch, job_queue, status):
     """
     Returns True if there are any jobs in the queue with the same status.
     """
 
-    response = batch.list_jobs(
-        jobQueue=job_queue, jobStatus=status, maxResults=1)
-    return len(response['jobSummaryList']) > 0
+    return count_jobs_with_status(batch, job_queue, status) > 0
 
 
 def wait_for_jobs_to_finish(job_queue, wait_time=300):
@@ -138,11 +146,11 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
     jobs_remaining = True
     while jobs_remaining:
         jobs_remaining = False
-        for status in ('SUBMITTED', 'PENDING', 'RUNNABLE', 'STARTING',
-                       'RUNNING'):
-            if any_jobs_with_status(batch, job_queue, status):
+        for status in ('RUNNING', 'SUBMITTED', 'PENDING', 'RUNNABLE', 'STARTING'):
+            job_count = count_jobs_with_status(batch, job_queue, status)
+            if job_count > 0:
                 jobs_remaining = True
-                print("[%s] Still have jobs left in queue." % (time.ctime()))
+                print("[%s] Still have jobs left in queue. %s remaining with state=%s" % (time.ctime(), job_count, status))
                 time.sleep(wait_time)
                 break
     print("All jobs finished (either SUCCEEDED or FAILED)")
