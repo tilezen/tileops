@@ -283,10 +283,14 @@ class TileSpecifier(object):
             order_idx = 0
             reader = csv.DictReader(fh)
             for row in reader:
-                coord = Coordinate(row['zoom'], row['x'], row['y'])
-                spec_dict[serialize_coord(coord)] = \
-                    {TileSpecifier.MEM_GB_KEY: row[TileSpecifier.MEM_GB_KEY], TileSpecifier.ORDER_KEY: order_idx}
-                order_idx += 1
+                try:
+                    coord = Coordinate(row['zoom'], row['x'], row['y'])
+                    spec_dict[serialize_coord(coord)] = \
+                        {TileSpecifier.MEM_GB_KEY: row[TileSpecifier.MEM_GB_KEY], TileSpecifier.ORDER_KEY: order_idx}
+                    order_idx += 1
+                except:
+                    print("Error for line parsed as %s in TileSpecifier.from_ordering_file" % row)
+                    continue
 
         return TileSpecifier(default_mem_gb, spec_dict)
 
@@ -309,16 +313,15 @@ class TileSpecifier(object):
 
         return 0
 
-    def get_mem_reqs(self, coord):
+    def get_mem_reqs_mb(self, coord_str, overprovision_multiplier=1.0):
         """
-        returns the specified memory requirements for the coordinate.  If none are specified, returns default_gb
+        returns the specified memory requirement in megabytes for the coordinate.  If none are specified,
+        returns default_gb
         """
-        key = serialize_coord(coord)
-        if key in self.spec_dict:
-            val = self.spec_dict[key]
-            return val[self.MEM_GB_KEY]
+        if coord_str in self.spec_dict:
+            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024 * overprovision_multiplier
         else:
-            return self.default_mem_gb
+            return self.default_mem_gb * 1024
 
 
 def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
@@ -378,9 +381,14 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
 
     reordered_lines = tile_specifier.reorder(coord_lines)
 
-    for coord_line in coord_lines:
+    overprovision_multiplier = 1.2  # 20% more memory than we think we need
+    for coord_line in reordered_lines:
+        # override memory requirements for this job with what the tile_specifier tells us
+        cfg["batch"]["memory"] = tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier)
+
         args = BatchEnqueueArgs(config_file, coord_line, None)
         tilequeue_batch_enqueue(cfg, args)
+
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
 # along with the LowZoomLense to loop over missing tiles generically but
@@ -462,6 +470,7 @@ def create_tile_specifier(tile_specifier_file):
             print("Error creating TileSpecifier, will use the default.  Error details: {}".format(sys.exc_info()[0]))
 
     return tile_specifier
+
 
 if __name__ == '__main__':
     import argparse
