@@ -366,7 +366,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     return big_jobs
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier()):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, retry_number, tile_specifier=TileSpecifier()):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
@@ -381,7 +381,11 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
 
     reordered_lines = tile_specifier.reorder(coord_lines)
 
-    overprovision_multiplier = 1.2  # 20% more memory than we think we need
+    if retry_number == 0:
+        overprovision_multiplier = 1.2 # overprovision by 20% at the start
+    else:
+        overprovision_multiplier = (2.0 ** retry_number) # double memory each time we retry
+
     for coord_line in reordered_lines:
         # override memory requirements for this job with what the tile_specifier tells us
         cfg["batch"]["memory"] = tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier)
@@ -448,7 +452,7 @@ class TileRenderer(object):
                     print("Enqueueing %d %s tiles (e.g. %s)" %
                           (count, lense.description, ', '.join(sample)))
                     enqueue_tiles(lense.config, missing_tile_file,
-                                  check_metatile_exists, tile_specifier)
+                                  check_metatile_exists, retry_number, tile_specifier)
 
         else:
             with self._missing() as missing:
