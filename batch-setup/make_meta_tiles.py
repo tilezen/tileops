@@ -284,6 +284,7 @@ class TileSpecifier(object):
             reader = csv.DictReader(fh)
             for row in reader:
                 try:
+                    # TODO: add checks for keys
                     coord = Coordinate(row['zoom'], row['x'], row['y'])
                     spec_dict[serialize_coord(coord)] = \
                         {TileSpecifier.MEM_GB_KEY: row[TileSpecifier.MEM_GB_KEY], TileSpecifier.ORDER_KEY: order_idx}
@@ -386,9 +387,11 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, retry_numb
     else:
         overprovision_multiplier = (2.0 ** retry_number) # double memory each time we retry
 
+    max_mem_mb = 32 * 1024
     for coord_line in reordered_lines:
         # override memory requirements for this job with what the tile_specifier tells us
-        cfg["batch"]["memory"] = tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier)
+        cfg["batch"]["memory"] = max(int(tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier)),
+                                     max_mem_mb)
 
         args = BatchEnqueueArgs(config_file, coord_line, None)
         tilequeue_batch_enqueue(cfg, args)
