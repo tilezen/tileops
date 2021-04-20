@@ -19,6 +19,7 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
+import sys
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
 
@@ -248,6 +249,78 @@ class _JobSizer(object):
         return parent, size
 
 
+class TileSpecifier(object):
+    ORDER_KEY = "order"
+    MEM_GB_KEY = "mem_gb"
+
+    """
+    Provides the ability to sort tiles based on an ordering and specify memory reqs
+    """
+
+    def __init__(self, default_mem_gb=8, spec_dict={}):
+        """
+        :param default_mem_gb:
+        :param spec_dict: keys are of form "<zoom>/<x>/<y>" value is a map with keys "mem_gb" and "order".  e.g.
+                {"7/3/10": {"mem_gb": 2.5, "order": 12},
+                "10/12/3": {"mem_gb": 0.3, "order": 10}}
+        """
+        self.default_mem_gb = default_mem_gb
+        self.spec_dict = {}
+
+    @staticmethod
+    def from_ordering_file(filename, default_mem_gb=8):
+        """
+        Expects a csv with at least these columns:
+        zoom, x, y, mem_gb
+        The lines in the file should be ordered in the desired queue ordering (e.g. first data line contains first tile to enqueue)
+        :return:
+        TileSpecifier with ordering and memory requirements expressed in <filename>
+        """
+        import csv
+
+        spec_dict = {}
+        with open(filename) as fh:
+            order_idx = 0
+            reader = csv.DictReader(fh)
+            for row in reader:
+                coord = Coordinate(row['zoom'], row['x'], row['y'])
+                spec_dict[serialize_coord(coord)] = \
+                    {TileSpecifier.MEM_GB_KEY: row[TileSpecifier.MEM_GB_KEY], TileSpecifier.ORDER_KEY: order_idx}
+                order_idx += 1
+
+        return TileSpecifier(default_mem_gb, spec_dict)
+
+    def reorder(self, coord_list):
+        """
+        Using the sort ordering for this specifier, reorders the tiles in coord_list.
+        coords that are in the coord_list that aren't mentioned in the ordering will go first.
+        :return:
+        """
+        return sorted(coord_list, lambda coord: self.get_ordering_val(coord))
+
+    def get_ordering_val(self, coord):
+        """
+        returns ordering location for coord.  The lower it is the earlier in the order.
+        If there is no ordering specified for this coordinate, returns 0
+        """
+        key = serialize_coord(coord)
+        if key in self.spec_dict:
+            return self.spec_dict[key][self.ORDER_KEY]
+
+        return 0
+
+    def get_mem_reqs(self, coord):
+        """
+        returns the specified memory requirements for the coordinate.  If none are specified, returns default_gb
+        """
+        key = serialize_coord(coord)
+        if key in self.spec_dict:
+            val = self.spec_dict[key]
+            return val[self.MEM_GB_KEY]
+        else:
+            return self.default_mem_gb
+
+
 def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
               size_threshold, pool_size=30):
     """
@@ -290,7 +363,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     return big_jobs
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier()):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
@@ -302,6 +375,8 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
 
     with open(tile_list_file, 'r') as tile_list:
         coord_lines = tile_list.readlines()
+
+    reordered_lines = tile_specifier.reorder(coord_lines)
 
     for coord_line in coord_lines:
         args = BatchEnqueueArgs(config_file, coord_line, None)
@@ -328,79 +403,12 @@ class LowZoomLense(object):
         return missing.low_zoom_file
 
 
-class TileSpecifier(object):
-    ORDER_KEY = "order"
-    MEM_GB_KEY = "mem_gb"
-
-    """
-    Provides the ability to sort tiles based on an ordering and specify memory reqs
-    """
-
-    def __init__(self, default_mem_gb=8, spec_dict={}):
-        """
-        :param default_mem_gb:
-        :param spec_dict: keys are of form "<zoom>/<x>/<y>" value is a map with keys "mem_gb" and "order".  e.g.
-                {"7/3/10": {"mem_gb": 2.5, "order": 12},
-                "10/12/3": {"mem_gb": 0.3, "order": 10}}
-        """
-        self.default_mem_gb = default_mem_gb
-        self.spec_dict = {}
-
-    def from_ordering_file(self, filename, default_mem_gb=8):
-        """
-        Expects a csv with at least these columns:
-        zoom, x, y, mem_gb
-        The lines in the file should be ordered in the desired queue ordering (e.g. first data line contains first tile to enqueue)
-        :return:
-        TileSpecifier with ordering and memory requirements in filename
-        """
-        import csv
-        with open(filename) as fh:
-            order_idx = 0
-            reader = csv.DictReader(fh)
-            for row in reader:
-                coord = Coordinate(row['zoom'], row['x'], row['y'])
-                self.spec_dict[serialize_coord(coord)] = \
-                    {self.MEM_GB_KEY: row[self.MEM_GB_KEY], self.ORDER_KEY: order_idx}
-                order_idx += 1
-
-    def reorder(self, coord_list):
-        """
-        Using the sort ordering for this specifier, reorders the tiles in coord_list.
-        coords that are in the coord_list that aren't mentioned in the ordering will go first.
-        :return:
-        """
-        return sorted(coord_list, lambda coord: self.get_ordering_val(coord))
-
-    def get_ordering_val(self, coord):
-        """
-        returns ordering location for coord.  The lower it is the earlier in the order.
-        If there is no ordering specified for this coordinate, returns 0
-        """
-        key = serialize_coord(coord)
-        if key in self.spec_dict:
-            return self.spec_dict[key][self.ORDER_KEY]
-
-        return 0
-
-    def get_mem_reqs(self, coord):
-        """
-        returns the specified memory requirements for the coordinate.  If none are specified, returns default_gb
-        """
-        key = serialize_coord(coord)
-        if key in self.spec_dict:
-            val = self.spec_dict[key]
-            return val[self.MEM_GB_KEY]
-        else:
-            return self.default_mem_gb
-
-
 # abstracts away the logic for a re-rendering loop, splitting between high and
 # low zoom tiles and stopping if all the tiles aren't rendered within a
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, allowed_missing_tiles=0):
+    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier=TileSpecifier(), allowed_missing_tiles=0):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
@@ -432,7 +440,7 @@ class TileRenderer(object):
                     print("Enqueueing %d %s tiles (e.g. %s)" %
                           (count, lense.description, ', '.join(sample)))
                     enqueue_tiles(lense.config, missing_tile_file,
-                                  check_metatile_exists)
+                                  check_metatile_exists, tile_specifier)
 
         else:
             with self._missing() as missing:
@@ -443,6 +451,17 @@ class TileRenderer(object):
                     "FAILED! %d %s still missing after %d tries (e.g. %s)"
                     % (count, lense.description, num_retries, ', '.join(sample)))
 
+
+def create_tile_specifier(tile_specifier_file):
+    default_mem_gb=8
+    tile_specifier = TileSpecifier()
+    if tile_specifier_file is not None:
+        try:
+            tile_specifier = TileSpecifier.from_ordering_file(tile_specifier_filename, default_mem_gb=8)
+        except:
+            print("Error creating TileSpecifier, will use the default.  Error details: {}".format(sys.exc_info()[0]))
+
+    return tile_specifier
 
 if __name__ == '__main__':
     import argparse
@@ -485,6 +504,9 @@ if __name__ == '__main__':
     parser.add_argument('--allowed-missing-tiles', default=2, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
+    parser.add_argument('--tile-specifier-file',
+                        help="optional csv containing lines in desired queue order with columns "
+                             "for zoom, x, y, and mem_gb to specify ordering and memory requirements")
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -512,11 +534,13 @@ if __name__ == '__main__':
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
         region, args.key_format_type, args.config, metatile_max_zoom)
 
+    tile_specifier = create_tile_specifier(args.tile_specifier_file)
+
     big_jobs = _big_jobs(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles, tile_specifier)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
