@@ -295,13 +295,17 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists):
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
 
-    args = BatchEnqueueArgs(config_file, None, tile_list_file, None)
     os.environ['TILEQUEUE__BATCH__CHECK-METATILE-EXISTS'] = (
         str(check_metatile_exists).lower())
-    with open(args.config) as fh:
+    with open(config_file) as fh:
         cfg = make_config_from_argparse(fh)
-    tilequeue_batch_enqueue(cfg, args)
 
+    with open(tile_list_file, 'r') as tile_list:
+        coord_lines = tile_list.readlines()
+
+    for coord_line in coord_lines:
+        args = BatchEnqueueArgs(config_file, coord_line, None)
+        tilequeue_batch_enqueue(cfg, args)
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
 # along with the LowZoomLense to loop over missing tiles generically but
