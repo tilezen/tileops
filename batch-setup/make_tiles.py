@@ -134,7 +134,7 @@ buckets = Buckets(args.rawr_bucket, meta_buckets,
 # raised if jobs fail with out-of-memory errors.
 memory = {
     'rawr-batch': 8192,
-    'meta-batch': 8192,  # 8 GiB
+    'meta-batch': 4096,  # 4 GiB
     'meta-low-zoom-batch': 8192,  # 8 GiB
     'missing-meta-tiles-write': 1024,
 }
