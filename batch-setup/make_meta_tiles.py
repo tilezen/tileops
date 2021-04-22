@@ -307,7 +307,7 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, mem_multip
 
 
 def update_memory_request(cfg, mem_multiplier, mem_max):
-    cfg.yml["batch"]["memory"] = min(cfg.yml["batch"]["memory"] * mem_multiplier, mem_max)
+    cfg.yml["batch"]["memory"] = int(min(cfg.yml["batch"]["memory"] * mem_multiplier, mem_max))
 
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
