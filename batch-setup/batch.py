@@ -107,7 +107,8 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
 
 def cmd_for_image(name, region):
     if name == 'rawr-batch':
-        cmd = ['tilequeue', 'rawr-tile',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+               'tilequeue', 'rawr-tile',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
                '--run_id', 'Ref::run_id']
@@ -120,7 +121,8 @@ def cmd_for_image(name, region):
                '--run_id', 'Ref::run_id']
 
     elif name == 'meta-low-zoom-batch':
-        cmd = ['tilequeue', 'meta-tile-low-zoom',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+               'tilequeue', 'meta-tile-low-zoom',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
                '--run_id', 'Ref::run_id']
