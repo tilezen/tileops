@@ -371,7 +371,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     return big_jobs
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier()):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier(), mem_multiplier=1.0, mem_max=32 * 1024):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
@@ -385,17 +385,27 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
         coord_lines = [line.strip() for line in tile_list.readlines()]
 
     reordered_lines = tile_specifier.reorder(coord_lines)
-
-    overprovision_multiplier = 1.2 # overprovision by 20%
+    
+    # if we aren't already increasing our memory usage somewhere else, we want to
+    # overprovision by 20% to allow for changes in tile complexity over time
+    overprovision_multiplier = 1.0
+    if mem_multiplier <= 1.0:
+      overprovision_multiplier = 1.2
+      
     print("[%s] Starting to enqueue %d tile batches" % (time.ctime(), len(reordered_lines)))
     for coord_line in reordered_lines:
         # override memory requirements for this job with what the tile_specifier tells us
-        memory_mb = int(tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier))
-        cfg.yml["batch"]["memory"] = memory_mb
+        mem_mb = int(tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier))
+        update_memory_request(cfg, mem_mb, mem_multiplier, mem_max)
 
         args = BatchEnqueueArgs(config_file, coord_line, None, None)
         tilequeue_batch_enqueue(cfg, args)
     print("[%s] Done enqueuing tile batches" % time.ctime())
+
+def update_memory_request(cfg, mem_mb, mem_multiplier, mem_max):
+    adjusted_mem = mem_mb * mem_multiplier
+    cfg.yml["batch"]["memory"] = int(min(adjusted_mem, mem_max))
+
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
 # along with the LowZoomLense to loop over missing tiles generically but
@@ -436,7 +446,10 @@ class TileRenderer(object):
             self.split_zoom, self.zoom_max, self.big_jobs)
 
     def render(self, num_retries, lense):
+        mem_max = 32 * 1024  # 32 GiB
+
         for retry_number in range(0, num_retries):
+            mem_multiplier = 1.5 ** retry_number
             with self._missing() as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
@@ -455,8 +468,9 @@ class TileRenderer(object):
                     sample = head_lines(missing_tile_file, 10)
                     print("Enqueueing %d %s tiles (e.g. %s)" %
                           (count, lense.description, ', '.join(sample)))
+
                     enqueue_tiles(lense.config, missing_tile_file,
-                                  check_metatile_exists, self.tile_specifier)
+                                  check_metatile_exists, self.tile_specifier, mem_multiplier, mem_max)
 
         else:
             with self._missing() as missing:
