@@ -19,7 +19,8 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
-
+import time
+import sys
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
 
@@ -149,7 +150,7 @@ class MissingTileFinder(object):
 
             self.read_metas_to_file(missing_meta_file, compress=True)
 
-            print("Splitting into high and low zoom lists")
+            print("[%s] Splitting into high and low zoom lists" % (time.ctime()))
 
             # contains zooms 0 until group zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.
@@ -190,10 +191,12 @@ class MissingTileFinder(object):
                 for coord in missing_high:
                     fh.write(serialize_coord(coord) + "\n")
 
+            print("[%s] Done splitting into high and low zoom lists" % (time.ctime()))
             yield MissingTiles(missing_low_file, missing_high_file)
 
         finally:
             shutil.rmtree(tmpdir)
+
 
     @contextmanager
     def present_tiles(self):
@@ -249,6 +252,82 @@ class _JobSizer(object):
         return parent, size
 
 
+class TileSpecifier(object):
+    ORDER_KEY = "order"
+    MEM_GB_KEY = "mem_gb"
+
+    """
+    Provides the ability to sort tiles based on an ordering and specify memory reqs
+    """
+
+    def __init__(self, default_mem_gb=8, spec_dict={}):
+        """
+        :param default_mem_gb:
+        :param spec_dict: keys are of form "<zoom>/<x>/<y>" value is a map with keys "mem_gb" and "order".  e.g.
+                {"7/3/10": {"mem_gb": 2.5, "order": 12},
+                "10/12/3": {"mem_gb": 0.3, "order": 10}}
+        """
+        self.default_mem_gb = default_mem_gb
+        self.spec_dict = spec_dict
+
+    @staticmethod
+    def from_ordering_file(filename, default_mem_gb=8):
+        """
+        Expects a csv with at least these columns:
+        zoom, x, y, mem_gb
+        The lines in the file should be ordered in the desired queue ordering (e.g. first data line contains first tile to enqueue)
+        :return:
+        TileSpecifier with ordering and memory requirements expressed in <filename>
+        """
+        import csv
+
+        spec_dict = {}
+        with open(filename) as fh:
+            order_idx = 0
+            reader = csv.DictReader(fh)
+            for row in reader:
+                try:
+                    # TODO: add checks for keys
+                    coord_str = serialize_coord(Coordinate(int(row['y']), int(row['x']), int(row['zoom'])))
+                    spec_dict[coord_str] = \
+                        {TileSpecifier.MEM_GB_KEY: float(row[TileSpecifier.MEM_GB_KEY]), TileSpecifier.ORDER_KEY: order_idx}
+                    order_idx += 1
+                except:
+                    print("Error for line parsed as %s in TileSpecifier.from_ordering_file - details %s" % (row, sys.exc_info()[0]))
+                    continue
+
+        return TileSpecifier(default_mem_gb, spec_dict)
+
+    def reorder(self, coord_list):
+        """
+        Using the sort ordering for this specifier, reorders the tiles in coord_list.
+        coords that are in the coord_list that aren't mentioned in the ordering will go first.
+        :return:
+        """
+        return sorted(coord_list, key=lambda coord: self.get_ordering_val(coord))
+
+    def get_ordering_val(self, coord):
+        """
+        coord is type string
+        returns ordering location for coord.  The lower it is the earlier in the order.
+        If there is no ordering specified for this coordinate, returns 0
+        """
+        if coord in self.spec_dict:
+            return self.spec_dict[coord][self.ORDER_KEY]
+
+        return 0
+
+    def get_mem_reqs_mb(self, coord_str, overprovision_multiplier=1.0):
+        """
+        returns the specified memory requirement in megabytes for the coordinate.  If none are specified,
+        returns default_gb
+        """
+        if coord_str in self.spec_dict:
+            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024 * overprovision_multiplier
+        else:
+            return self.default_mem_gb * 1024
+
+
 def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
               size_threshold, pool_size=30):
     """
@@ -268,7 +347,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     job_sizer = _JobSizer(rawr_bucket, prefix, key_format_type, rawr_zoom)
 
     big_jobs = CoordSet(group_zoom, min_zoom=group_zoom)
-
+    print("[%s] Finding big jobs by counting the size of raw tiles" % time.ctime())
     # loop over each column individually. this limits the number of concurrent
     # tasks, which means we don't waste memory maintaining a huge queue of
     # pending tasks. and when something goes wrong, the stacktrace isn't buried
@@ -288,26 +367,44 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
             if size >= size_threshold:
                 big_jobs[coord] = True
 
+    print("[%s] Done finding big jobs" % time.ctime())
     return big_jobs
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, mem_multiplier=1.0, mem_max=32 * 1024):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier(), mem_multiplier=1.0, mem_max=32 * 1024):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
 
-    args = BatchEnqueueArgs(config_file, None, tile_list_file, None)
     os.environ['TILEQUEUE__BATCH__CHECK-METATILE-EXISTS'] = (
         str(check_metatile_exists).lower())
-    with open(args.config) as fh:
+    with open(config_file) as fh:
         cfg = make_config_from_argparse(fh)
 
-    update_memory_request(cfg, mem_multiplier, mem_max)
-    tilequeue_batch_enqueue(cfg, args)
+    with open(tile_list_file, 'r') as tile_list:
+        coord_lines = [line.strip() for line in tile_list.readlines()]
 
+    reordered_lines = tile_specifier.reorder(coord_lines)
+    
+    # if we aren't already increasing our memory usage somewhere else, we want to
+    # overprovision by 20% to allow for changes in tile complexity over time
+    overprovision_multiplier = 1.0
+    if mem_multiplier <= 1.0:
+      overprovision_multiplier = 1.2
+      
+    print("[%s] Starting to enqueue %d tile batches" % (time.ctime(), len(reordered_lines)))
+    for coord_line in reordered_lines:
+        # override memory requirements for this job with what the tile_specifier tells us
+        mem_mb = int(tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier))
+        update_memory_request(cfg, mem_mb, mem_multiplier, mem_max)
 
-def update_memory_request(cfg, mem_multiplier, mem_max):
-    cfg.yml["batch"]["memory"] = int(min(cfg.yml["batch"]["memory"] * mem_multiplier, mem_max))
+        args = BatchEnqueueArgs(config_file, coord_line, None, None)
+        tilequeue_batch_enqueue(cfg, args)
+    print("[%s] Done enqueuing tile batches" % time.ctime())
+
+def update_memory_request(cfg, mem_mb, mem_multiplier, mem_max):
+    adjusted_mem = mem_mb * mem_multiplier
+    cfg.yml["batch"]["memory"] = int(min(adjusted_mem, mem_max))
 
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
@@ -336,12 +433,13 @@ class LowZoomLense(object):
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, allowed_missing_tiles=0):
+    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier=TileSpecifier(), allowed_missing_tiles=0):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
         self.zoom_max = zoom_max
         self.allowed_missing_tiles = allowed_missing_tiles
+        self.tile_specifier = tile_specifier
 
     def _missing(self):
         return self.tile_finder.missing_tiles_split(
@@ -372,7 +470,7 @@ class TileRenderer(object):
                           (count, lense.description, ', '.join(sample)))
 
                     enqueue_tiles(lense.config, missing_tile_file,
-                                  check_metatile_exists, mem_multiplier, mem_max)
+                                  check_metatile_exists, self.tile_specifier, mem_multiplier, mem_max)
 
         else:
             with self._missing() as missing:
@@ -382,6 +480,17 @@ class TileRenderer(object):
                 raise RuntimeError(
                     "FAILED! %d %s still missing after %d tries (e.g. %s)"
                     % (count, lense.description, num_retries, ', '.join(sample)))
+
+
+def create_tile_specifier(tile_specifier_file):
+    tile_specifier = TileSpecifier()
+    if tile_specifier_file is not None:
+        try:
+            tile_specifier = TileSpecifier.from_ordering_file(tile_specifier_file, default_mem_gb=8)
+        except:
+            print("Error creating TileSpecifier, will use the default.  Error details: {}".format(sys.exc_info()[0]))
+
+    return tile_specifier
 
 
 if __name__ == '__main__':
@@ -425,6 +534,9 @@ if __name__ == '__main__':
     parser.add_argument('--allowed-missing-tiles', default=2, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
+    parser.add_argument('--tile-specifier-file',
+                        help="optional csv containing lines in desired queue order with columns "
+                             "for zoom, x, y, and mem_gb to specify ordering and memory requirements")
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -452,11 +564,13 @@ if __name__ == '__main__':
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
         region, args.key_format_type, args.config, metatile_max_zoom)
 
+    tile_specifier = create_tile_specifier(args.tile_specifier_file)
+
     big_jobs = _big_jobs(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier, args.allowed_missing_tiles)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
