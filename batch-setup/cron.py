@@ -2,6 +2,7 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 from collections import namedtuple
+from run_id import assert_run_id_format
 
 
 # locations stores the S3 locations to use for tile assets, RAWR tiles, meta
@@ -528,6 +529,7 @@ if __name__ == '__main__':
                         'planet-url argument.')
 
     args = parser.parse_args()
+    assert_run_id_format(args.run_id)
 
     planet_md5_url = args.planet_md5_url or args.planet_url + ".md5"
 
