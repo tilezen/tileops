@@ -65,7 +65,7 @@ class MissingTileFinder(object):
             Prefix=self.dst_date_prefix,
         )
 
-        print("Listing logs to delete.")
+        print("[make_meta_tiles] Listing logs to delete.")
         keys = []
         for page in page_iter:
             if page['KeyCount'] == 0:
@@ -77,7 +77,7 @@ class MissingTileFinder(object):
         # from AWS documentation, we can delete up to 1000 at a time.
         max_keys_per_chunk = 1000
 
-        print("Deleting old logs.")
+        print("[make_meta_tiles] Deleting old logs.")
         for idx in range(0, len(keys), max_keys_per_chunk):
             chunk = keys[idx:idx+max_keys_per_chunk]
             response = self.s3.delete_objects(
@@ -89,15 +89,17 @@ class MissingTileFinder(object):
 
             errors = response.get('Errors')
             if errors:
-                raise RuntimeError("Unable to delete some files: %r" % errors)
+                raise RuntimeError("[make_meta_tiles] Unable to delete some "
+                                   "files: %r" % errors)
 
     def run_batch_job(self):
         # before we start, delete any data that exists under this date prefix
-        print("Clearing out old missing tile logs")
+        print("[make_meta_tiles] Clearing out old missing tile logs")
         self.clear_old_missing_logs()
 
         # enqueue the jobs to find all the existing meta tiles.
-        print("Running Batch job to enumerate existing meta tiles.")
+        print("[make_meta_tiles] Running Batch job to enumerate existing "
+              "meta tiles.")
         run_go(
             'tz-batch-submit-missing-meta-tiles',
             '-job-queue', self.job_queue_name,
@@ -110,14 +112,14 @@ class MissingTileFinder(object):
             '-key-format-type', self.key_format_type,
         )
 
-        print("Waiting for jobs to finish...")
+        print("[make_meta_tiles] Waiting for jobs to finish...")
         wait_for_jobs_to_finish(self.job_queue_name)
 
     def read_metas_to_file(self, filename, present=False, compress=False):
         if present:
-            print("Reading existing meta tiles")
+            print("[make_meta_tiles] Reading existing meta tiles")
         else:
-            print("Reading missing meta tiles")
+            print("[make_meta_tiles] Reading missing meta tiles")
 
         run_go('tz-missing-meta-tiles-read',
                '-bucket', self.missing_bucket,
@@ -149,7 +151,7 @@ class MissingTileFinder(object):
 
             self.read_metas_to_file(missing_meta_file, compress=True)
 
-            print("Splitting into high and low zoom lists")
+            print("[make_meta_tiles] Splitting into high and low zoom lists")
 
             # contains zooms 0 until group zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.
@@ -291,7 +293,8 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     return big_jobs
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, mem_multiplier=1.0, mem_max=32 * 1024):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists,
+                  mem_multiplier=1.0, mem_max=32 * 1024):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
@@ -307,7 +310,8 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, mem_multip
 
 
 def update_memory_request(cfg, mem_multiplier, mem_max):
-    cfg.yml["batch"]["memory"] = int(min(cfg.yml["batch"]["memory"] * mem_multiplier, mem_max))
+    cfg.yml["batch"]["memory"] = int(min(cfg.yml["batch"]["memory"] *
+                                         mem_multiplier, mem_max))
 
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
@@ -336,7 +340,8 @@ class LowZoomLense(object):
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, allowed_missing_tiles=0):
+    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max,
+                 allowed_missing_tiles=0):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
@@ -358,7 +363,8 @@ class TileRenderer(object):
 
                 if count <= self.allowed_missing_tiles:
                     sample = head_lines(missing_tile_file, 10)
-                    print("All %s done with %d missing tiles, %d allowed. e.g. %s" %
+                    print("[make_meta_tiles] All %s done with %d missing "
+                          "tiles, %d allowed. e.g. %s" %
                           (lense.description, count, self.allowed_missing_tiles,
                            ', '.join(sample)))
                     break
@@ -368,7 +374,7 @@ class TileRenderer(object):
                 # enqueue jobs for missing tiles
                 if count > 0:
                     sample = head_lines(missing_tile_file, 10)
-                    print("Enqueueing %d %s tiles (e.g. %s)" %
+                    print("[make_meta_tiles] Enqueueing %d %s tiles (e.g. %s)" %
                           (count, lense.description, ', '.join(sample)))
 
                     enqueue_tiles(lense.config, missing_tile_file,
@@ -380,8 +386,10 @@ class TileRenderer(object):
                 count = wc_line(missing_tile_file)
                 sample = head_lines(missing_tile_file, 10)
                 raise RuntimeError(
-                    "FAILED! %d %s still missing after %d tries (e.g. %s)"
-                    % (count, lense.description, num_retries, ', '.join(sample)))
+                    "[make_meta_tiles] FAILED! %d %s still missing after %d "
+                    "tries (e.g. %s)"
+                    % (count, lense.description, num_retries,
+                       ', '.join(sample)))
 
 
 if __name__ == '__main__':
@@ -441,7 +449,8 @@ if __name__ == '__main__':
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
+        print("[make_meta_tiles] ERROR: Need environment variable "
+              "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     # check that metatile_size is within a sensible range
