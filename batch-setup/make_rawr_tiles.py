@@ -66,7 +66,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
         config, tile_zoom)
     jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
 
-    print("Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
+    print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
 
     tmpdir = tempfile.mkdtemp()
     try:
@@ -145,7 +145,7 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
                 print("[%s] Still have jobs left in queue." % (time.ctime()))
                 time.sleep(wait_time)
                 break
-    print("All jobs finished (either SUCCEEDED or FAILED)")
+    print("[make_rawr_tiles] All jobs finished (either SUCCEEDED or FAILED)")
 
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
@@ -173,7 +173,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
         ) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
-                print("Successfully generated all the RAWR tiles after "
+                print("[make_rawr_tiles] Successfully generated all the RAWR "
+                      "tiles after "
                       "%d re-enqueues!" % (attempt))
                 return
 
@@ -186,7 +187,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
 
     tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                           key_format_type, config, tile_zoom)
-    print("Ran %d times, but still have %d missing tiles. Good luck!" %
+    print("[make_rawr_tiles] Ran %d times, but still have %d missing tiles. "
+          "Good luck!" %
           (retry_attempts, len(tiles)))
 
 
@@ -226,7 +228,8 @@ if __name__ == '__main__':
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
+        print("[make_rawr_tiles] ERROR: Need environment variable "
+              "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,

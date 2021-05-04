@@ -84,25 +84,29 @@ if args.meta_bucket.startswith('[') and args.meta_bucket.endswith(']'):
 else:
     meta_buckets = [args.meta_bucket]
 
-assert meta_buckets, "Must configure at least one meta tile storage bucket."
+assert meta_buckets, "[make_tiles] Must configure at least one meta tile " \
+                     "storage bucket."
 
 # check that bucket names look like valid bucket names
 assert _looks_like_an_s3_bucket_name(args.rawr_bucket), \
-    "RAWR bucket name %r doesn't look like an S3 bucket name." \
+    "[make_tiles] RAWR bucket name %r doesn't look like an S3 bucket name." \
     % (args.rawr_bucket,)
 if args.missing_bucket is not None:
     assert _looks_like_an_s3_bucket_name(args.missing_bucket), \
-        "missing bucket name %r doesn't look like an S3 bucket name." \
+        "[make_tiles] missing bucket name %r doesn't look like an S3 " \
+        "bucket name." \
         % (args.missing_bucket,)
 for bucket in meta_buckets:
     assert _looks_like_an_s3_bucket_name(bucket), \
-        "meta bucket name %r doesn't look like an S3 bucket name." % (bucket,)
+        "[make_tiles] meta bucket name %r doesn't look like an S3 " \
+        "bucket name." % (bucket,)
 
 
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
     import sys
-    print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
+    print("[make_tiles] ERROR: Need environment variable AWS_DEFAULT_REGION "
+          "to be set.")
     sys.exit(1)
 
 # unpack overrides into a dict, so it's easier to work with

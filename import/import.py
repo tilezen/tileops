@@ -75,14 +75,14 @@ if args.planet_url:
     assert args.run_id, '--planet-url requires --run-id'
     run_id = args.run_id
 
-    print("Downloading planet from %s" % planet_url)
+    print("[import] Downloading planet from %s" % planet_url)
 
     # set to empty string so it doesn't get serialized as 'None'
     planet_md5_url = args.planet_md5_url or ""
 else:
     if args.date is None:
         planet_date = osm.latest_planet_date()
-        print("Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d'))
+        print("[import] Latest planet date is: %s" % planet_date.strftime('%Y-%m-%d'))
     else:
         planet_date = datetime.datetime.strptime(args.date, '%Y-%m-%d').date()
 
@@ -116,7 +116,7 @@ elif args.find_ip_address == 'meta':
     ip_addr = requests.get(
         'http://169.254.169.254/latest/meta-data/public-ipv4').text
 else:
-    assert 0, '--find-ip-address <ipify|meta>'
+    assert 0, '[import] --find-ip-address <ipify|meta>'
 
 
 osm2pgsql.ensure_import(
