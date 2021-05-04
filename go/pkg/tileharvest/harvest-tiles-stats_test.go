@@ -17,23 +17,42 @@ import (
 )
 
 const (
-	rawrTileMatch = "Rawr tile generation finished"
-	metaTileMatch = "batch process run end"
+	rawrTileMatch           = "Rawr tile generation finished"
+	metaTileMatch           = "batch process run end"
+	metaLowZoomTileMatch    = "low zoom tile run end"
+	jobTypeRawrBatch        = "rawr-batch"
+	jobTypeMetaBatch        = "meta-batch"
+	jobTypeMetaLowZoomBatch = "meta-low-zoom-batch"
 )
+
+// Update these!!
+const (
+	runId            = "20210426-ordered"
+	jobType          = jobTypeMetaLowZoomBatch
+	maxLastUpdateAge = 290 * time.Minute
+)
+
+const (
+	filename = "/tmp/tilestats-" + runId + "-" + jobType
+)
+
 
 
 func getLogNames(svc *cloudwatchlogs.CloudWatchLogs, jobType string, runId string, logNameChan chan<- string) {
 	logGroupName := "/aws/batch/job"
-	logGroupNamePrefix := jobType + "-" + runId
+
 	limit := int64(50)
 	var token *string
 	var count int
+	var done bool
 	for {
 		input := cloudwatchlogs.DescribeLogStreamsInput{
+			Descending:          aws.Bool(true),
 			Limit:               &limit,
 			LogGroupName:        &logGroupName,
-			LogStreamNamePrefix: &logGroupNamePrefix,
+			// LogStreamNamePrefix: &logGroupNamePrefix,
 			NextToken:           token,
+			OrderBy:             aws.String("LastEventTime"),
 		}
 		streams, err := svc.DescribeLogStreams(&input)
 		if err != nil {
@@ -42,15 +61,26 @@ func getLogNames(svc *cloudwatchlogs.CloudWatchLogs, jobType string, runId strin
 
 		token = streams.NextToken
 
+		logGroupNamePrefix := jobType + "-" + runId
 		for _, stream := range streams.LogStreams {
+			lastEventTime := time.Unix(*stream.LastEventTimestamp / 1000, 0)
+			if time.Since(lastEventTime) > maxLastUpdateAge {
+				fmt.Printf("Bailing after %d logs - this LastEventTimestamp is %s which is greater than %s ago\n", count, lastEventTime.String(), maxLastUpdateAge.String())
+				done = true
+				break
+			}
+
+			if !strings.Contains(*stream.LogStreamName, logGroupNamePrefix) {
+				continue
+			}
 			if count % 1000 == 0 {
-				fmt.Printf("%dth Stream: %s\n", count, *stream.LogStreamName)
+				fmt.Printf("%dth Stream: %s - last event is at %s\n", count, *stream.LogStreamName, lastEventTime.String())
 			}
 			logNameChan <- *stream.LogStreamName
 			count++
 		}
 
-		if token == nil {
+		if token == nil || done {
 			close(logNameChan)
 			break
 		}
@@ -83,7 +113,7 @@ func getTileInfo(svc *cloudwatchlogs.CloudWatchLogs, logName string) (TileInfo, 
 			if err != nil {
 				return TileInfo{}, err
 			}
-		} else if strings.Contains(eventMessage, rawrTileMatch) {
+		} else if strings.Contains(eventMessage, rawrTileMatch) || strings.Contains(eventMessage, metaTileMatch) || strings.Contains(eventMessage, metaLowZoomTileMatch){
 			spec, err = extractTileSpec(eventMessage)
 			if err != nil {
 				return TileInfo{}, err
@@ -198,10 +228,6 @@ func dumpTileInfo(filename string, resultsChan <-chan TileInfo) {
 		count ++
 	}
 }
-
-const runId = "20210426-ordered"
-const jobType = "rawr-batch"
-const filename = "/tmp/tilestats-" + runId + "-" + jobType
 
 func TestHarvestTileData(t *testing.T) {
 	region := "us-east-1"
