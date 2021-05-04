@@ -16,9 +16,15 @@ import (
 	"time"
 )
 
-func getLogNames(svc *cloudwatchlogs.CloudWatchLogs, logNameChan chan<- string) {
+const (
+	rawrTileMatch = "Rawr tile generation finished"
+	metaTileMatch = "batch process run end"
+)
+
+
+func getLogNames(svc *cloudwatchlogs.CloudWatchLogs, jobType string, runId string, logNameChan chan<- string) {
 	logGroupName := "/aws/batch/job"
-	logGroupNamePrefix := "meta-batch-20210402"
+	logGroupNamePrefix := jobType + "-" + runId
 	limit := int64(50)
 	var token *string
 	var count int
@@ -77,7 +83,7 @@ func getTileInfo(svc *cloudwatchlogs.CloudWatchLogs, logName string) (TileInfo, 
 			if err != nil {
 				return TileInfo{}, err
 			}
-		} else if strings.Contains(eventMessage, "batch process run end") {
+		} else if strings.Contains(eventMessage, rawrTileMatch) {
 			spec, err = extractTileSpec(eventMessage)
 			if err != nil {
 				return TileInfo{}, err
@@ -193,10 +199,13 @@ func dumpTileInfo(filename string, resultsChan <-chan TileInfo) {
 	}
 }
 
-const filename = "/tmp/tilestats"
+const runId = "20210426-ordered"
+const jobType = "rawr-batch"
+const filename = "/tmp/tilestats-" + runId + "-" + jobType
 
 func TestHarvestTileData(t *testing.T) {
 	region := "us-east-1"
+
 	verbose := true
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
@@ -215,7 +224,7 @@ func TestHarvestTileData(t *testing.T) {
 	svc := cloudwatchlogs.New(sess)
 
 	logNameChan := make(chan string, 1000000)
-	go getLogNames(svc, logNameChan)
+	go getLogNames(svc, jobType, runId, logNameChan)
 
 	workerCount := 20
 	resultsChan := make(chan TileInfo, workerCount)
