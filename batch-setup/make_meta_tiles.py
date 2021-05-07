@@ -317,13 +317,13 @@ class TileSpecifier(object):
 
         return 0
 
-    def get_mem_reqs_mb(self, coord_str, overprovision_multiplier=1.0):
+    def get_mem_reqs_mb(self, coord_str):
         """
         returns the specified memory requirement in megabytes for the coordinate.  If none are specified,
         returns default_gb
         """
         if coord_str in self.spec_dict:
-            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024 * overprovision_multiplier
+            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024
         else:
             return self.default_mem_gb * 1024
 
@@ -371,6 +371,27 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     return big_jobs
 
 
+def viable_container_overrides(mem_mb):
+    """
+    Turns a number into the next highest even multiple that AWS will accept, and the min number of CPUs you need for that amount
+    :param mem_mb: (int) the megabytes of memory you'd request in an ideal world
+    :return: the amount of mem you need to request for AWS batch to honor it, the amount of vcpus you must request
+    """
+    if mem_mb < 512:
+        return 512
+
+    if mem_mb % 1024 == 0:
+        return mem_mb
+
+    # truncate number / 1024, then bump by 1
+    desired_mem_mb = (int(mem_mb) / 1024 + 1) * 1024
+
+    max_mem_per_vcpu = 8 * 1024
+    vcpus = (desired_mem_mb - 1) / max_mem_per_vcpu + 1
+
+    return desired_mem_mb, vcpus
+
+
 def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier(), mem_multiplier=1.0, mem_max=32 * 1024):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
@@ -385,26 +406,26 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
         coord_lines = [line.strip() for line in tile_list.readlines()]
 
     reordered_lines = tile_specifier.reorder(coord_lines)
-    
-    # if we aren't already increasing our memory usage somewhere else, we want to
-    # overprovision by 20% to allow for changes in tile complexity over time
-    overprovision_multiplier = 1.0
-    if mem_multiplier <= 1.0:
-      overprovision_multiplier = 1.2
-      
+
     print("[%s] Starting to enqueue %d tile batches" % (time.ctime(), len(reordered_lines)))
     for coord_line in reordered_lines:
         # override memory requirements for this job with what the tile_specifier tells us
-        mem_mb = int(tile_specifier.get_mem_reqs_mb(coord_line, overprovision_multiplier))
-        update_memory_request(cfg, mem_mb, mem_multiplier, mem_max)
+        mem_mb = int(tile_specifier.get_mem_reqs_mb(coord_line))
+        adjusted_mem = mem_mb * mem_multiplier
+
+        # now that we know what we think we want, pick something AWS actually supports
+        viable_mem_request, required_min_cpus = viable_container_overrides(adjusted_mem)
+
+        update_container_overrides(cfg, viable_mem_request, mem_max, required_min_cpus)
 
         args = BatchEnqueueArgs(config_file, coord_line, None, None)
         tilequeue_batch_enqueue(cfg, args)
     print("[%s] Done enqueuing tile batches" % time.ctime())
 
-def update_memory_request(cfg, mem_mb, mem_multiplier, mem_max):
-    adjusted_mem = mem_mb * mem_multiplier
-    cfg.yml["batch"]["memory"] = int(min(adjusted_mem, mem_max))
+
+def update_container_overrides(cfg, mem_mb, mem_max, cpus):
+    cfg.yml["batch"]["memory"] = int(min(mem_mb, mem_max))
+    cfg.yml["batch"]["vcpus"] = cpus
 
 
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
