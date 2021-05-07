@@ -378,16 +378,17 @@ def viable_container_overrides(mem_mb):
     :return: the amount of mem you need to request for AWS batch to honor it, the amount of vcpus you must request
     """
     if mem_mb < 512:
-        return 512
+        return 512, 1
 
     if mem_mb % 1024 == 0:
-        return mem_mb
+        return mem_mb, 1
 
-    # truncate number / 1024, then bump by 1
-    desired_mem_mb = (int(mem_mb) / 1024 + 1) * 1024
+    mem_gb_truncated = mem_mb / 1024
+    next_gb = mem_gb_truncated + 1
+    desired_mem_mb = next_gb * 1024
 
     max_mem_per_vcpu = 8 * 1024
-    vcpus = (desired_mem_mb - 1) / max_mem_per_vcpu + 1
+    vcpus = 1 + (desired_mem_mb - 1)/max_mem_per_vcpu
 
     return desired_mem_mb, vcpus
 
@@ -413,7 +414,7 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
         mem_mb = int(tile_specifier.get_mem_reqs_mb(coord_line))
         adjusted_mem = mem_mb * mem_multiplier
 
-        # now that we know what we think we want, pick something AWS actually supports
+        # now that we know what we want, pick something AWS actually supports
         viable_mem_request, required_min_cpus = viable_container_overrides(adjusted_mem)
 
         update_container_overrides(cfg, viable_mem_request, mem_max, required_min_cpus)
