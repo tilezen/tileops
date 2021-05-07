@@ -377,18 +377,20 @@ def viable_container_overrides(mem_mb):
     :param mem_mb: (int) the megabytes of memory you'd request in an ideal world
     :return: the amount of mem you need to request for AWS batch to honor it, the amount of vcpus you must request
     """
+    mem_mb = int(mem_mb)
+
     if mem_mb < 512:
         return 512, 1
 
     if mem_mb % 1024 == 0:
         return mem_mb, 1
 
-    mem_gb_truncated = mem_mb / 1024
+    mem_gb_truncated = int(mem_mb / 1024)
     next_gb = mem_gb_truncated + 1
     desired_mem_mb = next_gb * 1024
 
     max_mem_per_vcpu = 8 * 1024
-    vcpus = 1 + (desired_mem_mb - 1)/max_mem_per_vcpu
+    vcpus = 1 + int((desired_mem_mb - 1)/max_mem_per_vcpu)
 
     return desired_mem_mb, vcpus
 
