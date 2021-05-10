@@ -142,7 +142,7 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
                        'RUNNING'):
             if any_jobs_with_status(batch, job_queue, status):
                 jobs_remaining = True
-                print("[%s] Still have jobs left in queue." % (time.ctime()))
+                print("[make_rawr_tiles] [%s] Still have jobs left in queue." % (time.ctime()))
                 time.sleep(wait_time)
                 break
     print("[make_rawr_tiles] All jobs finished (either SUCCEEDED or FAILED)")
