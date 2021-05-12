@@ -69,6 +69,9 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
     tiles = missing_tiles(
         missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
         config, tile_zoom, tiles_coords_generator)
+
+    # the rawr tiles of `tile_zoom` is actually built by AWS batch jobs of
+    # `job_zoom` so we need to do a zoomTo here to find the corresponding jobs
     jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
 
     print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))

@@ -180,8 +180,8 @@ class MissingTileFinder(object):
 
             print("[make_meta_tiles] Splitting into high and low zoom lists")
 
-            # contains zooms 0 until zoom_max. the jobs between the zoom_max
-            # and RAWR zoom are merged into the parent at zoom_max.
+            # contains zooms 0 until group zoom. the jobs between the group
+            # zoom and RAWR zoom are merged into the parent at group zoom.
             missing_low = CoordSet(max_zoom=zoom_max)
 
             # contains job coords at either zoom_max or split_zoom only.
