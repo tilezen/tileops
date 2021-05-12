@@ -172,7 +172,6 @@ class MissingTileFinder(object):
         at zoom_max.
         """
 
-        self.run_batch_job()
         tmpdir = tempfile.mkdtemp()
         try:
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
