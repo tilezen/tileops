@@ -20,7 +20,6 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
-from typing import NamedTuple
 from typing import Iterator
 
 
@@ -31,7 +30,7 @@ class MissingTileFinder(object):
     """
     Finds tiles missing from an S3 bucket and provides convenience methods to
     navigate them.
-    If tiles_generator is provided, it will use that to generate missing tiles.
+    If tiles_coords_generator is provided, it will use that to generate missing tiles.
     """
 
     def __init__(self, missing_bucket, tile_bucket, src_date_prefix,
@@ -365,13 +364,13 @@ class LowZoomLense(object):
 class TileRenderer(object):
 
     def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max,
-                 allowed_missing_tiles=0, tiles_generator=None):
+                 allowed_missing_tiles=0, tiles_coords_generator=None):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
         self.zoom_max = zoom_max
         self.allowed_missing_tiles = allowed_missing_tiles
-        self.tiles_generator = tiles_generator
+        self.tiles_coords_generator = tiles_coords_generator
 
     def _missing(self):
         return self.tile_finder.missing_tiles_split(
