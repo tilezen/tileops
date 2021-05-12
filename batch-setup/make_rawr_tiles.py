@@ -5,6 +5,8 @@ from tilequeue.command import make_config_from_argparse
 from tilequeue.command import tilequeue_batch_enqueue
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
+from utils.tiles import BoundingBoxTilesCoordinateGenerator
+from utils.tiles import TilesCoordinateGenerator
 import boto3
 import os.path
 import shutil
@@ -31,29 +33,32 @@ def all_tiles_at(zoom):
 
 
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
-                  key_format_type, config, zoom):
+                  key_format_type, config, zoom, tiles_coords_generator=None):
     from make_meta_tiles import MissingTileFinder
 
-    present = set()
+    if bool(tiles_coords_generator):
+        return set([c for c in tiles_coords_generator.
+                   generate_tiles_coordinates([zoom])])
+    else:
+        present = set()
+        finder = MissingTileFinder(
+            missing_bucket, rawr_bucket, date_prefix, date_prefix, region,
+            key_format_type, config, zoom, tiles_coords_generator)
+        with finder.present_tiles() as present_file:
+            with open(present_file) as fh:
+                for line in fh:
+                    coord = deserialize_coord(line)
+                    if coord.zoom == zoom:
+                        present.add(coord)
 
-    finder = MissingTileFinder(
-        missing_bucket, rawr_bucket, date_prefix, date_prefix, region,
-        key_format_type, config, zoom)
-
-    with finder.present_tiles() as present_file:
-        with open(present_file) as fh:
-            for line in fh:
-                coord = deserialize_coord(line)
-                if coord.zoom == zoom:
-                    present.add(coord)
-
-    missing = set(all_tiles_at(zoom)) - set(present)
-    return missing
+        missing = set(all_tiles_at(zoom)) - set(present)
+        return missing
 
 
 @contextmanager
 def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
-                 tile_zoom=10, job_zoom=7, key_format_type='prefix-hash'):
+                 tile_zoom=10, job_zoom=7, key_format_type='prefix-hash',
+                 tiles_coords_generator=None):
     """
     Write and yield file containing a z/x/y coordinate for each job (at the
     job zoom) corresponding to a missing tile (at the tile zoom) in the bucket.
@@ -63,7 +68,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
 
     tiles = missing_tiles(
         missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
-        config, tile_zoom)
+        config, tile_zoom, tiles_coords_generator)
     jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
 
     print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
@@ -150,7 +155,9 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
                     rawr_bucket, region, date_prefix, retry_attempts,
-                    tile_zoom=10, key_format_type='prefix-hash'):
+                    tile_zoom=10, key_format_type='prefix-hash',
+                    tiles_coords_generator=None):
+    # type: (str, str, str, str, str, str, int, int, str, TilesCoordinateGenerator) -> None
     """
     Finds out which jobs need to be run to have a complete RAWR tiles bucket,
     runs them and waits for them to complete. If the bucket still isn't
@@ -169,7 +176,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
     for attempt in range(retry_attempts):
         with missing_jobs(
                 missing_bucket, rawr_bucket, date_prefix, region,
-                missing_config_file, tile_zoom, job_zoom, key_format_type
+                missing_config_file, tile_zoom, job_zoom, key_format_type,
+                tiles_coords_generator
         ) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
@@ -186,7 +194,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
             wait_for_jobs_to_finish(job_queue)
 
     tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
-                          key_format_type, config, tile_zoom)
+                          key_format_type, config, tile_zoom,
+                          tiles_coords_generator)
     print("[make_rawr_tiles] Ran %d times, but still have %d missing tiles. "
           "Good luck!" %
           (retry_attempts, len(tiles)))
@@ -219,6 +228,10 @@ if __name__ == '__main__':
                         "written out by make_tiles.py")
     parser.add_argument('missing_bucket', help="Bucket to store tile "
                         "enumeration logs in while calculating missing tiles.")
+    parser.add_argument('--use-tiles-generator',
+                        default=False,
+                        type=bool,
+                        help="whether to use tiles coordinates generator")
 
     args = parser.parse_args()
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
@@ -232,6 +245,13 @@ if __name__ == '__main__':
               "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
+    generator = None
+    if args.use_tiles_coords_generator:
+        generator = BoundingBoxTilesCoordinateGenerator(west=-4.1494623,
+                                                        south=38.350205,
+                                                        east=3.321241,
+                                                        north=47.790958)
+
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
                     args.bucket, region, args.date_prefix, args.retries,
-                    args.tile_zoom, args.key_format_type)
+                    args.tile_zoom, args.key_format_type, generator)
