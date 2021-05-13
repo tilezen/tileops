@@ -181,7 +181,7 @@ class MissingTileFinder(object):
 
             # contains zooms 0 until group zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.
-            missing_low = CoordSet(max_zoom=zoom_max)
+            missing_low = CoordSet(max_zoom=zoom_max)  # 7
 
             # contains job coords at either zoom_max or split_zoom only.
             # zoom_max is a misnomer here, as it's always less than or equal to
@@ -190,10 +190,10 @@ class MissingTileFinder(object):
 
             with self.generate_missing_tiles_coords() as coords:
                 for c in coords:
-                    if c.zoom < split_zoom:
+                    if c.zoom < split_zoom:  # 10
                         # in order to not have too many jobs in the queue, we
                         # group the low zoom jobs to the zoom_max (usually 7)
-                        if c.zoom > zoom_max:
+                        if c.zoom > zoom_max:  # 7
                             c = c.zoomTo(zoom_max).container()
                         missing_low[c] = True
                     else:
@@ -201,7 +201,7 @@ class MissingTileFinder(object):
                         # (according to big_jobs[]) then enqueue the original
                         # coordinate. this is to prevent a "long tail" of huge
                         # job groups.
-                        job_coord = c.zoomTo(zoom_max).container()
+                        job_coord = c.zoomTo(zoom_max).container()  # 7
                         if not big_jobs[job_coord]:
                             c = job_coord
                         missing_high[c] = True
@@ -297,7 +297,9 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     # tasks, which means we don't waste memory maintaining a huge queue of
     # pending tasks. and when something goes wrong, the stacktrace isn't buried
     # in a million others.
-    num_coords = 1 << group_zoom
+
+    # todo use the bbox to reduce the for loop
+    num_coords = 1 << group_zoom  # 7
     for x in range(num_coords):
         # kick off tasks async. each one knows its own coordinate, so we only
         # need to track the handle to know when its finished.
@@ -486,12 +488,10 @@ if __name__ == '__main__':
 
     generator = None
     if args.use_tiles_coords_generator:
-        generator = BoundingBoxTilesCoordinateGenerator(west=-4.1494623,
-                                                        south=38.350205,
-                                                        east=3.321241,
-                                                        north=47.790958,
-                                                        min_zoom=0,
-                                                        max_zoom=max(split_zoom, zoom_max))
+        generator = BoundingBoxTilesCoordinateGenerator(west=-122.188295,
+                                                        south=47.556570,
+                                                        east=-122.187670,
+                                                        north=47.556808)
 
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,

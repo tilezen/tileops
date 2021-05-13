@@ -3,6 +3,8 @@ from mercantile import tiles
 from mercantile import tile
 from typing import Iterator
 from typing import List
+from utils.constants import MAX_TILE_ZOOM
+from utils.constants import MIN_TILE_ZOOM
 
 
 class TilesCoordinateGenerator(object):
@@ -44,8 +46,8 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
     """ Generate the tiles overlapped by a geographic bounding box within a
     range """
 
-    # todo is 25 tilezen's max zoom????
-    def __init__(self, west, south, east, north, min_zoom=0, max_zoom=25):
+    def __init__(self, west, south, east, north, min_zoom=MIN_TILE_ZOOM,
+                 max_zoom=MAX_TILE_ZOOM):
         # type: (float, float, float, float, int, int) -> None
         """
         :param west: longitude of the west boundary

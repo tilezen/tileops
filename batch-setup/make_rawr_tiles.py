@@ -250,10 +250,10 @@ if __name__ == '__main__':
 
     generator = None
     if args.use_tiles_coords_generator:
-        generator = BoundingBoxTilesCoordinateGenerator(west=-122.185508,
-                                                        south=47.587435,
-                                                        east=-122.168342,
-                                                        north=47.602600)
+        generator = BoundingBoxTilesCoordinateGenerator(west=-122.188295,
+                                                        south=47.556570,
+                                                        east=-122.187670,
+                                                        north=47.556808)
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
                     args.bucket, region, args.date_prefix, args.retries,

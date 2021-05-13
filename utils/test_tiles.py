@@ -21,3 +21,11 @@ def test_tiles_within_bbox():
     res = generator2.generate_tiles_coordinates([10])
     expected = [Coordinate(357, 164, 10)]
     assert expected == [c for c in res]
+
+    generator2 = BoundingBoxTilesCoordinateGenerator(-122.188295,
+                                                     47.556570,
+                                                     -122.187670,
+                                                     47.556808)
+    res = generator2.generate_tiles_coordinates([15])
+    expected = [Coordinate(11450, 5262, 15)]
+    assert expected == [c for c in res]
