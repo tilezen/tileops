@@ -57,7 +57,7 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
-        super().__init__(min_zoom=min_zoom, max_zoom=max_zoom)
+        super(BoundingBoxTilesCoordinateGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
         self.west = west
         self.south = south
         self.east = east
