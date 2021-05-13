@@ -12,6 +12,7 @@ import os.path
 import shutil
 import tempfile
 import yaml
+import sys
 
 
 # this struct exists to be passed into tilequeue's tilequeue_batch_enqueue
@@ -205,6 +206,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
 
 
 if __name__ == '__main__':
+    sys.path.insert(0, os.path.abspath('..'))
+
     import argparse
 
     parser = argparse.ArgumentParser("Render missing RAWR tiles")
