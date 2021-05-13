@@ -1,8 +1,8 @@
 from ModestMaps.Core import Coordinate
 from mercantile import tiles
 from mercantile import tile
-from typing import Iterator
-from typing import List
+#from typing import Iterator
+#from typing import List
 from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
 

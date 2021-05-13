@@ -11,12 +11,14 @@ import shutil
 import tempfile
 import yaml
 import sys
+import os
 
-sys.path.insert(0, os.path.abspath('..'))
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
 
 from utils.tiles import BoundingBoxTilesCoordinateGenerator
 from utils.tiles import TilesCoordinateGenerator
-
 
 
 # this struct exists to be passed into tilequeue's tilequeue_batch_enqueue

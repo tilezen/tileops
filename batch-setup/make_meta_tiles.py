@@ -20,7 +20,7 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
-from typing import Iterator
+#from typing import Iterator
 
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
