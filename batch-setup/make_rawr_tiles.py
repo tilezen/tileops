@@ -39,11 +39,15 @@ def all_tiles_at(zoom):
             yield Coordinate(zoom=zoom, column=x, row=y)
 
 
+generate_used = False
+
+
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                   key_format_type, config, zoom, tiles_coords_generator=None):
     from make_meta_tiles import MissingTileFinder
-
-    if bool(tiles_coords_generator):
+    global generate_used
+    if not generate_used and bool(tiles_coords_generator):
+        generate_used = True
         return set([c for c in tiles_coords_generator.
                    generate_tiles_coordinates([zoom])])
     else:

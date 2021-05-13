@@ -22,10 +22,14 @@ def test_tiles_within_bbox():
     expected = [Coordinate(357, 164, 10)]
     assert expected == [c for c in res]
 
-    generator2 = BoundingBoxTilesCoordinateGenerator(-122.188295,
+    generator3 = BoundingBoxTilesCoordinateGenerator(-122.188295,
                                                      47.556570,
                                                      -122.187670,
                                                      47.556808)
-    res = generator2.generate_tiles_coordinates([15])
+    res = generator3.generate_tiles_coordinates([15])
     expected = [Coordinate(11450, 5262, 15)]
-    assert expected == [c for c in res]
+    coords = [c for c in res]
+    assert expected == coords
+
+    zoomedCoord = coords[0].zoomTo(7).container()
+    assert Coordinate(44, 20, 7) == zoomedCoord  # on AWS batch the job name is 7-20-44
