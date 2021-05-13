@@ -5,14 +5,18 @@ from tilequeue.command import make_config_from_argparse
 from tilequeue.command import tilequeue_batch_enqueue
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
-from utils.tiles import BoundingBoxTilesCoordinateGenerator
-from utils.tiles import TilesCoordinateGenerator
 import boto3
 import os.path
 import shutil
 import tempfile
 import yaml
 import sys
+
+sys.path.insert(0, os.path.abspath('..'))
+
+from utils.tiles import BoundingBoxTilesCoordinateGenerator
+from utils.tiles import TilesCoordinateGenerator
+
 
 
 # this struct exists to be passed into tilequeue's tilequeue_batch_enqueue
@@ -206,8 +210,6 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.abspath('..'))
-
     import argparse
 
     parser = argparse.ArgumentParser("Render missing RAWR tiles")
