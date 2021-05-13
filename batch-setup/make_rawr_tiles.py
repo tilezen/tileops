@@ -238,7 +238,7 @@ if __name__ == '__main__':
                         "written out by make_tiles.py")
     parser.add_argument('missing_bucket', help="Bucket to store tile "
                         "enumeration logs in while calculating missing tiles.")
-    parser.add_argument('--use-tiles-generator',
+    parser.add_argument('--use-tiles-coords-generator',
                         default=False,
                         type=bool,
                         help="whether to use tiles coordinates generator")
