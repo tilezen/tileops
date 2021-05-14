@@ -249,10 +249,10 @@ class _JobSizer(object):
                 key = gen(self.prefix, coord, 'zip')
                 response = s3.head_object(Bucket=self.bucket, Key=key)
                 map_key = "%s/%s/%s" % (coord.zoom, coord.column, coord.row)
-                size = response['ContentLength']
+                elem_size = response['ContentLength']
                 # print("key %s size %s" % (map_key, size))
-                size_map[map_key] = size
-                size += response['ContentLength']
+                size_map[map_key] = elem_size
+                size += elem_size
 
         return parent, size, size_map
 
