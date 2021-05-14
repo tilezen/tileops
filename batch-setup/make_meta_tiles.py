@@ -136,7 +136,6 @@ class MissingTileFinder(object):
                '-max-zoom', str(self.max_zoom),
                stdout=filename)
 
-    @contextmanager
     def generate_missing_tiles_coords(self, try_generator=False):
         # type: () -> List[Coordinate]
         """ generate the missing tiles coordinates for low/high-zoom
@@ -193,23 +192,23 @@ class MissingTileFinder(object):
             # split zoom?
             missing_high = CoordSet(min_zoom=zoom_max, max_zoom=split_zoom)
 
-            with self.generate_missing_tiles_coords(try_generator) as coords:
-                for c in coords:
-                    if c.zoom < split_zoom:  # 10
-                        # in order to not have too many jobs in the queue, we
-                        # group the low zoom jobs to the zoom_max (usually 7)
-                        if c.zoom > zoom_max:  # 7
-                            c = c.zoomTo(zoom_max).container()
-                        missing_low[c] = True
-                    else:
-                        # if the group of jobs at zoom_max would be too big
-                        # (according to big_jobs[]) then enqueue the original
-                        # coordinate. this is to prevent a "long tail" of huge
-                        # job groups.
-                        job_coord = c.zoomTo(zoom_max).container()  # 7
-                        if not big_jobs[job_coord]:
-                            c = job_coord
-                        missing_high[c] = True
+            coords = self.generate_missing_tiles_coords(try_generator)
+            for c in coords:
+                if c.zoom < split_zoom:  # 10
+                    # in order to not have too many jobs in the queue, we
+                    # group the low zoom jobs to the zoom_max (usually 7)
+                    if c.zoom > zoom_max:  # 7
+                        c = c.zoomTo(zoom_max).container()
+                    missing_low[c] = True
+                else:
+                    # if the group of jobs at zoom_max would be too big
+                    # (according to big_jobs[]) then enqueue the original
+                    # coordinate. this is to prevent a "long tail" of huge
+                    # job groups.
+                    job_coord = c.zoomTo(zoom_max).container()  # 7
+                    if not big_jobs[job_coord]:
+                        c = job_coord
+                    missing_high[c] = True
 
             with open(missing_low_file, 'w') as fh:
                 for coord in missing_low:
