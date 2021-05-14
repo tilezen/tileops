@@ -138,7 +138,7 @@ class MissingTileFinder(object):
 
     @contextmanager
     def generate_missing_tiles_coords(self, try_generator=False):
-        # type: () -> Iterator[Coordinate]
+        # type: () -> List[Coordinate]
         """ generate the missing tiles coordinates for low/high-zoom
             splitting
             :param try_generator: if set, it will to use the preset tiles_coords_generator if that's available
@@ -148,15 +148,18 @@ class MissingTileFinder(object):
             if try_generator and bool(self.tiles_coords_generator):
                 print("[make_meta_tiles] generate missing tiles coords "
                       "using customized generator")
-                for coord in self.tiles_coords_generator.generate_tiles_coordinates([]):
-                    yield coord
+                # todo check how yield can return
+                # for coord in self.tiles_coords_generator.generate_tiles_coordinates([]):
+                #     yield coord
+                return [coord for coord in self.tiles_coords_generator.generate_tiles_coordinates([])]
             else:
                 self.run_batch_job()
                 missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
                 self.read_metas_to_file(missing_meta_file, compress=True)
                 with gzip.open(missing_meta_file, 'r') as fh:
-                    for line in fh:
-                        yield deserialize_coord(line)
+                    # for line in fh:
+                    #     yield deserialize_coord(line)
+                    return [deserialize_coord(line) for line in fh]
         finally:
             shutil.rmtree(tmpdir)
 
