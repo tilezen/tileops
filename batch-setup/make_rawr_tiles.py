@@ -39,15 +39,10 @@ def all_tiles_at(zoom):
             yield Coordinate(zoom=zoom, column=x, row=y)
 
 
-generate_used = False
-
-
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                   key_format_type, config, zoom, tiles_coords_generator=None):
     from make_meta_tiles import MissingTileFinder
-    global generate_used
-    if not generate_used and bool(tiles_coords_generator):
-        generate_used = True
+    if bool(tiles_coords_generator):
         return set([c for c in tiles_coords_generator.
                    generate_tiles_coordinates([zoom])])
     else:
@@ -164,7 +159,7 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
                 print("[make_rawr_tiles] [%s] Still have jobs left in queue." % (time.ctime()))
                 time.sleep(wait_time)
                 break
-    print("[make_rawr_tiles] All jobs finished (either SUCCEEDED or FAILED)")
+    print("[make_rawr_tiles] [%s] All jobs finished (either SUCCEEDED or FAILED)" % (time.ctime()))
 
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
@@ -188,10 +183,11 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
         job_queue = config['batch']['job-queue']
 
     for attempt in range(retry_attempts):
+        tiles_generator = tiles_coords_generator if attempt == 0 else None
         with missing_jobs(
                 missing_bucket, rawr_bucket, date_prefix, region,
                 missing_config_file, tile_zoom, job_zoom, key_format_type,
-                tiles_coords_generator
+                tiles_generator
         ) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
@@ -209,7 +205,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
 
     tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                           key_format_type, config, tile_zoom,
-                          tiles_coords_generator)
+                          None)
     print("[make_rawr_tiles] Ran %d times, but still have %d missing tiles. "
           "Good luck!" %
           (retry_attempts, len(tiles)))

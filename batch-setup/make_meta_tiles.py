@@ -137,14 +137,15 @@ class MissingTileFinder(object):
                stdout=filename)
 
     @contextmanager
-    def generate_missing_tiles_coords(self):
+    def generate_missing_tiles_coords(self, try_generator=False):
         # type: () -> Iterator[Coordinate]
         """ generate the missing tiles coordinates for low/high-zoom
             splitting
+            :param try_generator: if set, it will to use the preset tiles_coords_generator if that's available
         """
         tmpdir = tempfile.mkdtemp()
         try:
-            if bool(self.tiles_coords_generator):
+            if try_generator and bool(self.tiles_coords_generator):
                 print("[make_meta_tiles] generate missing tiles coords "
                       "using customized generator")
                 for coord in self.tiles_coords_generator.generate_tiles_coordinates([]):
@@ -160,7 +161,8 @@ class MissingTileFinder(object):
             shutil.rmtree(tmpdir)
 
     @contextmanager
-    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs):
+    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs,
+                            try_generator):
         # type: (int, int, CoordSet) -> Iterator[MissingTiles]
         """
         To be used in a with-statement. Yields a MissingTiles object, giving
@@ -188,7 +190,7 @@ class MissingTileFinder(object):
             # split zoom?
             missing_high = CoordSet(min_zoom=zoom_max, max_zoom=split_zoom)
 
-            with self.generate_missing_tiles_coords() as coords:
+            with self.generate_missing_tiles_coords(try_generator) as coords:
                 for c in coords:
                     if c.zoom < split_zoom:  # 10
                         # in order to not have too many jobs in the queue, we
@@ -373,16 +375,17 @@ class TileRenderer(object):
         self.allowed_missing_tiles = allowed_missing_tiles
         self.tiles_coords_generator = tiles_coords_generator
 
-    def _missing(self):
+    def _missing(self, try_generator):
         return self.tile_finder.missing_tiles_split(
-            self.split_zoom, self.zoom_max, self.big_jobs)
+            self.split_zoom, self.zoom_max, self.big_jobs, try_generator)
 
     def render(self, num_retries, lense):
         mem_max = 32 * 1024  # 32 GiB
 
         for retry_number in range(0, num_retries):
             mem_multiplier = 1.5 ** retry_number
-            with self._missing() as missing:
+            try_generator = (retry_number == 0)
+            with self._missing(try_generator) as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
 
@@ -406,7 +409,7 @@ class TileRenderer(object):
                                   check_metatile_exists, mem_multiplier, mem_max)
 
         else:
-            with self._missing() as missing:
+            with self._missing(False) as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
                 sample = head_lines(missing_tile_file, 10)
