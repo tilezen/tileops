@@ -603,6 +603,8 @@ if __name__ == '__main__':
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
+    sys.exit()
+
     tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier, args.allowed_missing_tiles)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
