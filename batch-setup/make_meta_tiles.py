@@ -248,9 +248,9 @@ class _JobSizer(object):
                     row=((parent.row << dz) + dy))
                 key = gen(self.prefix, coord, 'zip')
                 response = s3.head_object(Bucket=self.bucket, Key=key)
-                map_key = "%s/%s/%s" % (coord.zoom, coord.column, coord.zoom)
+                map_key = "%s/%s/%s" % (coord.zoom, coord.column, coord.row)
                 size = response['ContentLength']
-                print("key %s size %s" % (map_key, size))
+                # print("key %s size %s" % (map_key, size))
                 size_map[map_key] = size
                 size += response['ContentLength']
 
@@ -371,7 +371,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
             coord, size, size_map = task.get()
             if size >= size_threshold:
                 print("TMG: Big job for %s/%s/%s total size is: %s" % (coord.zoom, coord.column, coord.row, size))
-                for (k, v) in size_map:
+                for (k, v) in size_map.items():
                     print("-------------------TMG: Inner tile size for _coord_:%s is _size_:%s" % (k, v))
                 big_jobs[coord] = True
             else:
