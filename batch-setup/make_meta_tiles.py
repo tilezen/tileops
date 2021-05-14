@@ -364,7 +364,9 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
         # collect tasks and put them into the big jobs list.
         for task in tasks:
             coord, size = task.get()
+            print("TMG: Total rawr tile size for %s/%s/%s is %s", coord.zoom, coord.column, coord.row, size)
             if size >= size_threshold:
+                print("TMG: Big job for %s/%s/%s", coord.zoom, coord.column, coord.row)
                 big_jobs[coord] = True
 
     print("[%s] Done finding big jobs" % time.ctime())
