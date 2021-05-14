@@ -461,7 +461,7 @@ if __name__ == '__main__':
     parser.add_argument('--allowed-missing-tiles', default=2, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
-    parser.add_argument('--use-tiles-generator', default=False,
+    parser.add_argument('--use-tiles-coords-generator', default=False,
                         type=bool,
                         help='whether to use tiles coordinates generator')
 
