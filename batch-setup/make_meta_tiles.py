@@ -239,6 +239,7 @@ class _JobSizer(object):
         width = 1 << dz
 
         size = 0
+        size_map = {}
         for dx in range(width):
             for dy in range(width):
                 coord = Coordinate(
@@ -247,9 +248,10 @@ class _JobSizer(object):
                     row=((parent.row << dz) + dy))
                 key = gen(self.prefix, coord, 'zip')
                 response = s3.head_object(Bucket=self.bucket, Key=key)
+                size_map["%s/%s/%s" % (coord.zoom, coord.column, coord.zoom)] = response['ContentLength']
                 size += response['ContentLength']
 
-        return parent, size
+        return parent, size, size_map
 
 
 class TileSpecifier(object):
@@ -363,10 +365,12 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
 
         # collect tasks and put them into the big jobs list.
         for task in tasks:
-            coord, size = task.get()
-            print("TMG: Total rawr tile size for %s/%s/%s is %s" % (coord.zoom, coord.column, coord.row, size))
+            coord, size, size_map = task.get()
+            print("TMG: Total rawr tile size for _coord_:%s/%s/%s is _size_:%s" % (coord.zoom, coord.column, coord.row, size))
             if size >= size_threshold:
                 print("TMG: Big job for %s/%s/%s" % (coord.zoom, coord.column, coord.row))
+                for (k, v) in size_map:
+                    print("TMG: Inner tile size for _coord_:%s is _size_:%s" % (k, v))
                 big_jobs[coord] = True
 
     print("[%s] Done finding big jobs" % time.ctime())
