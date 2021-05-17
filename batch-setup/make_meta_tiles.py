@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from collections import namedtuple
 import boto3
 import os
+import sys
 import shutil
 import tempfile
 from utils.tiles import BoundingBoxTilesCoordinateGenerator
@@ -20,6 +21,7 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
+from distutils.util import strtobool
 #from typing import Iterator
 
 
@@ -463,9 +465,12 @@ if __name__ == '__main__':
     parser.add_argument('--allowed-missing-tiles', default=2, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
-    parser.add_argument('--use-tiles-coords-generator', default=False,
-                        type=bool,
-                        help='whether to use tiles coordinates generator')
+    parser.add_argument('--use-tiles-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
+                        const=True, default=False)
+    parser.add_argument('--coords-generator-bbox-west', type=float, help="west longitude of bounding box to build")
+    parser.add_argument('--coords-generator-bbox-south', type=float, help="south latitude of bounding box to build")
+    parser.add_argument('--coords-generator-bbox-east', type=float, help="east longitude of bounding box to build")
+    parser.add_argument('--coords-generator-bbox-north', type=float, help="north latitude of bounding box to build")
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -481,7 +486,6 @@ if __name__ == '__main__':
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
-        import sys
         print("[make_meta_tiles] ERROR: Need environment variable "
               "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
@@ -491,12 +495,24 @@ if __name__ == '__main__':
     assert args.metatile_size < 100
     metatile_max_zoom = 16 - metatile_zoom_from_size(args.metatile_size)
 
-    generator = None
+    bbox_west = -181
+    bbox_south = -181
+    bbox_east = -181
+    bbox_north = -181
     if args.use_tiles_coords_generator:
-        generator = BoundingBoxTilesCoordinateGenerator(west=-122.188295,
-                                                        south=47.556570,
-                                                        east=-122.187670,
-                                                        north=47.556808)
+        if args.coords_generator_bbox_west is None or args.coords_generator_bbox_south is None or \
+                args.coords_generator_bbox_east is None or args.coords_generator_bbox_north is None:
+            print("not all borders of the bounding box are provided")
+            sys.exit(1)
+        bbox_west = args.coords_generator_bbox_west
+        bbox_south = args.coords_generator_bbox_south
+        bbox_east = args.coords_generator_bbox_east
+        bbox_north = args.coords_generator_bbox_north
+
+    generator = BoundingBoxTilesCoordinateGenerator(west=bbox_west,
+                                                    south=bbox_south,
+                                                    east=bbox_east,
+                                                    north=bbox_north)
 
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
