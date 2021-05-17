@@ -499,6 +499,7 @@ if __name__ == '__main__':
     bbox_south = -181
     bbox_east = -181
     bbox_north = -181
+    generator = None
     if args.use_tiles_coords_generator:
         if args.coords_generator_bbox_west is None or args.coords_generator_bbox_south is None or \
                 args.coords_generator_bbox_east is None or args.coords_generator_bbox_north is None:
@@ -509,10 +510,10 @@ if __name__ == '__main__':
         bbox_east = args.coords_generator_bbox_east
         bbox_north = args.coords_generator_bbox_north
 
-    generator = BoundingBoxTilesCoordinateGenerator(west=bbox_west,
-                                                    south=bbox_south,
-                                                    east=bbox_east,
-                                                    north=bbox_north)
+        generator = BoundingBoxTilesCoordinateGenerator(west=bbox_west,
+                                                        south=bbox_south,
+                                                        east=bbox_east,
+                                                        north=bbox_north)
 
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
