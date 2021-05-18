@@ -17,6 +17,7 @@ class TilesCoordinateGenerator(object):
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
+        assert min_zoom <= max_zoom
         self.min_zoom = min_zoom
         self.max_zoom = max_zoom
 

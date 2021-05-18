@@ -34,12 +34,14 @@ def test_tiles_within_bbox():
     zoomedCoord = coords[0].zoomTo(7).container()
     assert Coordinate(44, 20, 7) == zoomedCoord
 
-    generator4 = BoundingBoxTilesCoordinateGenerator(-122.924358,
-                                                     47.131730,
-                                                     -121.861431,
-                                                     47.960414)
+    generator4 = BoundingBoxTilesCoordinateGenerator(-123.571730,
+                                                     45.263862,
+                                                     -118.386183,
+                                                     48.760348)
 
-    res = generator4.generate_tiles_coordinates([9])
-    coords = [c for c in res]
-    zoomedCoord = coords[0].zoomTo(7).container()
-    assert Coordinate(44, 20, 7) == zoomedCoord
+    res = generator4.generate_tiles_coordinates([10])
+    zoomedCoords = set(coord.zoomTo(7).container() for coord in res)
+
+    assert set([Coordinate(44, 20, 7), Coordinate(44, 21, 7), Coordinate(45, 20, 7), Coordinate(45, 21, 7)]) == \
+           zoomedCoords
+
