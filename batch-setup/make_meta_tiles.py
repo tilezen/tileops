@@ -404,7 +404,7 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
             grouped_by_rawr_tile_size.append(this_coord)
             grouping_queue.task_done()
 
-            if not this_coord.zoom in counts_at_zoom:
+            if this_coord.zoom not in counts_at_zoom:
                 counts_at_zoom[this_coord.zoom] = 0
             counts_at_zoom += 1
         else:
@@ -444,7 +444,8 @@ def viable_container_overrides(mem_mb):
     return desired_mem_mb, vcpus
 
 
-def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier(), mem_multiplier=1.0, mem_max=32 * 1024):
+def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_specifier=TileSpecifier(),
+                  mem_multiplier=1.0, mem_max=32 * 1024):
     from tilequeue.command import make_config_from_argparse
     from tilequeue.command import tilequeue_batch_enqueue
     from make_rawr_tiles import BatchEnqueueArgs
