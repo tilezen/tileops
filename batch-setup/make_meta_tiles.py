@@ -1,3 +1,5 @@
+import queue
+
 from batch import Buckets
 from batch import run_go
 import yaml
@@ -130,15 +132,15 @@ class MissingTileFinder(object):
                stdout=filename)
 
     @contextmanager
-    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs):
+    def missing_tiles_split(self, split_zoom, zoom_max, job_set):
         """
         To be used in a with-statement. Yields a MissingTiles object, giving
         information about the tiles which are missing.
 
-        High zoom jobs are output either at split_zoom (RAWR tile granularity)
-        or zoom_max (usually lower, e.g: 7) depending on whether big_jobs
-        contains a truthy value for the RAWR tile. The big_jobs are looked up
-        at zoom_max.
+        High zoom jobs are output between split_zoom (RAWR tile granularity) and zoom_max
+        (usually lower, e.g: 6) depending on whether job_list
+        contains a truthy value for the RAWR tile. The job_list jobs are are looked up
+        at starting at zoom_max, then at increasing zooms until split_zoom.
         """
 
         self.run_batch_job()
@@ -163,25 +165,31 @@ class MissingTileFinder(object):
 
             with gzip.open(missing_meta_file, 'r') as fh:
                 for line in fh:
-                    c = deserialize_coord(line)
-                    if c.zoom < split_zoom:
+                    this_coord = deserialize_coord(line)
+                    if this_coord.zoom < split_zoom:
                         # in order to not have too many jobs in the queue, we
                         # group the low zoom jobs to the zoom_max (usually 7)
-                        if c.zoom > zoom_max:
-                            c = c.zoomTo(zoom_max).container()
+                        if this_coord.zoom > zoom_max:
+                            this_coord = this_coord.zoomTo(zoom_max).container()
 
-                        missing_low[c] = True
+                        missing_low[this_coord] = True
 
                     else:
-                        # if the group of jobs at zoom_max would be too big
-                        # (according to big_jobs[]) then enqueue the original
-                        # coordinate. this is to prevent a "long tail" of huge
-                        # job groups.
-                        job_coord = c.zoomTo(zoom_max).container()
-                        if not big_jobs[job_coord]:
-                            c = job_coord
+                        # check the job set at every zoom starting from
+                        # zoom max - if we don't find it at a lower zoom
+                        # register it at split_zoom
+                        job_registered = False
+                        for this_zoom in range(zoom_max, split_zoom):
+                            lower_zoom_job_coord = this_coord.zoomTo(this_zoom)
+                            if job_set[lower_zoom_job_coord]:
+                                print("REMOVEME: Registered %s at lower zoom coord %s" % (serialize_coord(this_coord), serialize_coord(lower_zoom_job_coord)))
+                                missing_high[lower_zoom_job_coord] = True
+                                job_registered = True
+                                break
 
-                        missing_high[c] = True
+                        if not job_registered:
+                            print("REMOVEME: Fell back to registering %s at split zoom: %s" % (serialize_coord(this_coord), serialize_coord(lower_zoom_job_coord)))
+                            missing_high[this_coord] = True
 
             with open(missing_low_file, 'w') as fh:
                 for coord in missing_low:
@@ -238,7 +246,7 @@ class _JobSizer(object):
         assert dz >= 0
         width = 1 << dz
 
-        size = 0
+        sizes = {}
         for dx in range(width):
             for dy in range(width):
                 coord = Coordinate(
@@ -247,9 +255,19 @@ class _JobSizer(object):
                     row=((parent.row << dz) + dy))
                 key = gen(self.prefix, coord, 'zip')
                 response = s3.head_object(Bucket=self.bucket, Key=key)
-                size += response['ContentLength']
+                sizes[coord] = response['ContentLength']
 
-        return parent, size
+        # now sum the sizes from rawr zoom to parent zoom
+        for coord in sizes.keys():
+            print("REMOVEME: started at %s - size: %s" % (serialize_coord(coord), sizes[coord]))
+            for zoom in range(self.rawr_zoom, parent.zoom, -1):
+                parent_coord = coord.zoomTo(zoom-1).container()
+                if not sizes.has_key(parent_coord):
+                    sizes.parent_coord = 0
+                sizes[parent_coord] += sizes[coord]
+            print("REMOVEME: ended at %s - total size: %s" % (serialize_coord(parent_coord), sizes[parent_coord]))
+
+        return parent, sizes
 
 
 class TileSpecifier(object):
@@ -297,6 +315,14 @@ class TileSpecifier(object):
                     continue
 
         return TileSpecifier(default_mem_gb, spec_dict)
+    @staticmethod
+    def from_coord_list(coord_list, default_mem_gb):
+        spec_dict = {}
+        for i in range(len(coord_list)):
+            coord_str = serialize_coord(coord_list[i])
+            spec_dict[coord_str] = {TileSpecifier.ORDER_KEY: i}
+
+        return TileSpecifier(default_mem_gb, spec_dict)
 
     def reorder(self, coord_list):
         """
@@ -328,14 +354,13 @@ class TileSpecifier(object):
             return self.default_mem_gb * 1024
 
 
-def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
-              size_threshold, pool_size=30):
+def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
+                                      size_threshold, pool_size=30):
     """
     Look up the RAWR tiles in the rawr_bucket under the prefix and with the
     given key format, group the RAWR tiles (usually at zoom 10) by the job
-    group zoom (usually 7) and sum their sizes. Return a map-like object
-    which has a truthy value for those Coordinates at group_zoom which sum
-    to size_threshold or more.
+    group zoom (usually 7) and sum their sizes. Return an ordered list of job coordinates
+    by descending raw size sum.
 
     A pool size of 30 seems to work well; the point of the pool is to hide
     the latency of S3 requests, so pretty quickly hits the law of diminishing
@@ -346,13 +371,15 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     p = Pool(pool_size)
     job_sizer = _JobSizer(rawr_bucket, prefix, key_format_type, rawr_zoom)
 
-    big_jobs = CoordSet(group_zoom, min_zoom=group_zoom)
-    print("[%s] Finding big jobs by counting the size of raw tiles" % time.ctime())
+    grouped_by_rawr_tile_size = []
+    print("[%s] Bucketizing jobs by zoom using size of raw tiles" % time.ctime())
     # loop over each column individually. this limits the number of concurrent
     # tasks, which means we don't waste memory maintaining a huge queue of
     # pending tasks. and when something goes wrong, the stacktrace isn't buried
     # in a million others.
     num_coords = 1 << group_zoom
+    all_sizes = {}
+    grouping_queue = queue.SimpleQueue()
     for x in range(num_coords):
         # kick off tasks async. each one knows its own coordinate, so we only
         # need to track the handle to know when its finished.
@@ -360,15 +387,38 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
         for y in range(num_coords):
             coord = Coordinate(zoom=group_zoom, column=x, row=y)
             tasks.append(p.apply_async(job_sizer, (coord,)))
+            grouping_queue.put_nowait(coord)  # queue for future size counting
 
         # collect tasks and put them into the big jobs list.
         for task in tasks:
-            coord, size = task.get()
-            if size >= size_threshold:
-                big_jobs[coord] = True
+            coord, sizes = task.get()
+            all_sizes = all_sizes.update(sizes)
+        print("REMOVEME: Finished the %s column" % x)
 
-    print("[%s] Done finding big jobs" % time.ctime())
-    return big_jobs
+    # now use all_sizes plus the size_threshold to find the lowest zoom we can group the tiles in
+    counts_at_zoom = {}
+    while not grouping_queue.empty():
+        this_coord = grouping_queue.get_nowait()
+        this_size = all_sizes[this_coord]
+
+        if this_size <= size_threshold or this_coord.zoom == rawr_zoom:
+            grouped_by_rawr_tile_size.append(this_coord)
+            grouping_queue.task_done()
+
+            if not counts_at_zoom.has_key(this_coord.zoom):
+                counts_at_zoom[this_coord.zoom] = 0
+            counts_at_zoom += 1
+        else:
+            top_left_child = this_coord.zoomBy(1)
+
+            grouping_queue.put_nowait(top_left_child)
+            grouping_queue.put_nowait(top_left_child.down(1))
+            grouping_queue.put_nowait(top_left_child.right(1))
+            grouping_queue.put_nowait(top_left_child.down(1).right(1))
+
+    print("[%s] Done bucketizing jobs - count by zoom %s" % (time.ctime(), counts_at_zoom))
+    ordered_job_list = sorted(grouped_by_rawr_tile_size, key=lambda coord: all_sizes[coord], reverse=True)
+    return ordered_job_list
 
 
 def viable_container_overrides(mem_mb):
@@ -457,9 +507,9 @@ class LowZoomLense(object):
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier=TileSpecifier(), allowed_missing_tiles=0):
+    def __init__(self, tile_finder, high_zoom_job_set, split_zoom, zoom_max, tile_specifier=TileSpecifier(), allowed_missing_tiles=0):
         self.tile_finder = tile_finder
-        self.big_jobs = big_jobs
+        self.high_zoom_job_set = high_zoom_job_set
         self.split_zoom = split_zoom
         self.zoom_max = zoom_max
         self.allowed_missing_tiles = allowed_missing_tiles
@@ -467,7 +517,7 @@ class TileRenderer(object):
 
     def _missing(self):
         return self.tile_finder.missing_tiles_split(
-            self.split_zoom, self.zoom_max, self.big_jobs)
+            self.split_zoom, self.zoom_max, self.high_zoom_job_set)
 
     def render(self, num_retries, lense):
         mem_max = 32 * 1024  # 32 GiB
@@ -517,6 +567,12 @@ def create_tile_specifier(tile_specifier_file):
     return tile_specifier
 
 
+def make_coord_set(coords, max_zoom, min_zoom):
+    coord_set = CoordSet(max_zoom, min_zoom)
+    for coord in coords:
+         coord_set[coord] = True
+    return coord_set
+
 if __name__ == '__main__':
     import argparse
 
@@ -551,7 +607,7 @@ if __name__ == '__main__':
                         "prefixed with the date or hash first.")
     parser.add_argument('--metatile-size', default=8, type=int,
                         help='Metatile size (in 256px tiles).')
-    parser.add_argument('--size-threshold', default=350000000, type=int,
+    parser.add_argument('--size-threshold', default=80_000_000, type=int,
                         help='If all the RAWR tiles grouped together are '
                         'bigger than this, split the job up into individual '
                         'RAWR tiles.')
@@ -572,7 +628,7 @@ if __name__ == '__main__':
 
     # TODO: split zoom and zoom max should come from config.
     split_zoom = 10
-    zoom_max = 7
+    zoom_max = 6
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
@@ -588,13 +644,13 @@ if __name__ == '__main__':
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
         region, args.key_format_type, args.config, metatile_max_zoom)
 
-    tile_specifier = create_tile_specifier(args.tile_specifier_file)
-
-    big_jobs = _big_jobs(
+    jobs_list = _distribute_jobs_by_raw_tile_size(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, tile_specifier, args.allowed_missing_tiles)
+    tile_specifier = TileSpecifier.from_coord_list(jobs_list, 4)
+
+    tile_renderer = TileRenderer(tile_finder, make_coord_set(jobs_list, split_zoom, zoom_max), split_zoom, zoom_max, tile_specifier, args.allowed_missing_tiles)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
