@@ -259,13 +259,12 @@ class _JobSizer(object):
 
         # now sum the sizes from rawr zoom to parent zoom
         for coord in sizes.keys():
-            print("REMOVEME: started at %s - size: %s" % (serialize_coord(coord), sizes[coord]))
             for zoom in range(self.rawr_zoom, parent.zoom, -1):
                 parent_coord = coord.zoomTo(zoom-1).container()
-                if not sizes.has_key(parent_coord):
-                    sizes.parent_coord = 0
+                if parent_coord not in sizes:
+                    sizes[parent_coord] = 0
                 sizes[parent_coord] += sizes[coord]
-            print("REMOVEME: ended at %s - total size: %s" % (serialize_coord(parent_coord), sizes[parent_coord]))
+        print("Completed parent %s" % serialize_coord(parent_coord))
 
         return parent, sizes
 
@@ -379,7 +378,7 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
     # in a million others.
     num_coords = 1 << group_zoom
     all_sizes = {}
-    grouping_queue = queue.SimpleQueue()
+    grouping_queue = queue.Queue()
     for x in range(num_coords):
         # kick off tasks async. each one knows its own coordinate, so we only
         # need to track the handle to know when its finished.
@@ -405,7 +404,7 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
             grouped_by_rawr_tile_size.append(this_coord)
             grouping_queue.task_done()
 
-            if not counts_at_zoom.has_key(this_coord.zoom):
+            if not this_coord.zoom in counts_at_zoom:
                 counts_at_zoom[this_coord.zoom] = 0
             counts_at_zoom += 1
         else:
@@ -607,7 +606,7 @@ if __name__ == '__main__':
                         "prefixed with the date or hash first.")
     parser.add_argument('--metatile-size', default=8, type=int,
                         help='Metatile size (in 256px tiles).')
-    parser.add_argument('--size-threshold', default=80_000_000, type=int,
+    parser.add_argument('--size-threshold', default=80000000, type=int,
                         help='If all the RAWR tiles grouped together are '
                         'bigger than this, split the job up into individual '
                         'RAWR tiles.')
@@ -647,6 +646,8 @@ if __name__ == '__main__':
     jobs_list = _distribute_jobs_by_raw_tile_size(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
+
+    sys.exit()
 
     tile_specifier = TileSpecifier.from_coord_list(jobs_list, 4)
 
