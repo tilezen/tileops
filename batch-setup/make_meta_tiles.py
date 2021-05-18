@@ -391,7 +391,7 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
         # collect tasks and put them into the big jobs list.
         for task in tasks:
             coord, sizes = task.get()
-            all_sizes = all_sizes.update(sizes)
+            all_sizes.update(sizes)
         print("REMOVEME: Finished the %s column" % x)
 
     # now use all_sizes plus the size_threshold to find the lowest zoom we can group the tiles in
