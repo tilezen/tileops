@@ -239,12 +239,10 @@ if __name__ == '__main__':
                         "written out by make_tiles.py")
     parser.add_argument('missing_bucket', help="Bucket to store tile "
                         "enumeration logs in while calculating missing tiles.")
-    parser.add_argument('--use-tiles-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
+    parser.add_argument('--use-tile-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
                         const=True, default=False)
-    parser.add_argument('--coords-generator-bbox-west', type=float, help="west longitude of bounding box to build")
-    parser.add_argument('--coords-generator-bbox-south', type=float, help="south latitude of bounding box to build")
-    parser.add_argument('--coords-generator-bbox-east', type=float, help="east longitude of bounding box to build")
-    parser.add_argument('--coords-generator-bbox-north', type=float, help="north latitude of bounding box to build")
+    parser.add_argument('--tile-coords-generator-bbox', help="Comma separated coordinates of a bounding box "
+                                                             "min_x, min_y, max_x, max_y")
 
     args = parser.parse_args()
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
@@ -258,25 +256,18 @@ if __name__ == '__main__':
               "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
 
-    bbox_west = -181
-    bbox_south = -181
-    bbox_east = -181
-    bbox_north = -181
     generator = None
     if args.use_tile_coords_generator:
-        if args.coords_generator_bbox_west is None or args.coords_generator_bbox_south is None or \
-                args.coords_generator_bbox_east is None or args.coords_generator_bbox_north is None:
-            print("not all borders of the bounding box are provided")
-            sys.exit(1)
-        bbox_west = args.coords_generator_bbox_west
-        bbox_south = args.coords_generator_bbox_south
-        bbox_east = args.coords_generator_bbox_east
-        bbox_north = args.coords_generator_bbox_north
-
-        generator = BoundingBoxTilesCoordinateGenerator(west=bbox_west,
-                                                        south=bbox_south,
-                                                        east=bbox_east,
-                                                        north=bbox_north)
+        bboxes = args.tile_coords_generator_bbox.split(',')
+        assert len(bboxes) == 4, 'Seed config: custom bbox {} does not have exactly four elements!'.format(bboxes)
+        min_x, min_y, max_x, max_y = list(map(float, bboxes))
+        assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
+        assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
+        generator = BoundingBoxTilesCoordinateGenerator(min_x=min_x,
+                                                        min_y=min_y,
+                                                        max_x=max_x,
+                                                        max_y=max_y)
+        print("[make_rawr_tiles] Rebuild using bbox: " + args.tile_coords_generator_bbox)
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
                     args.bucket, region, args.date_prefix, args.retries,

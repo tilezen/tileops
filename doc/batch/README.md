@@ -123,7 +123,7 @@ Furthermore, it also takes `--tile` and `--file` arguments. `--tile` will only e
 After each build is finished, to rebuild the tiles that intersects with a bounding box, you can logon to the tiles ops runner EC2 instance, and trigger a command similar to the following
 
 ```
-BBOX_WEST=-123.571730 BBOX_SOUTH=45.263862 BBOX_EAST=-118.386183 BBOX_NORTH=48.760348 /usr/bin/nohup /usr/local/bin/bbox_rebuild.sh &
+BBOX=-123.571730,45.263862,-118.386183,48.760348 /usr/bin/nohup /usr/local/bin/bbox_rebuild.sh &
 ```
 
 (the above command will rebuild all the rawr and meta tiles that wraps the bounding box BBOX_WEST=-123.571730 BBOX_SOUTH=45.263862 BBOX_EAST=-118.386183 BBOX_NORTH=48.760348)

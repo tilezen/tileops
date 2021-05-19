@@ -1,8 +1,6 @@
 from ModestMaps.Core import Coordinate
 from mercantile import tiles
 from mercantile import tile
-#from typing import Iterator
-#from typing import List
 from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
 
@@ -47,22 +45,22 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
     """ Generate the tiles overlapped by a geographic bounding box within a
     range """
 
-    def __init__(self, west, south, east, north, min_zoom=MIN_TILE_ZOOM,
+    def __init__(self, min_x, min_y, max_x, max_y, min_zoom=MIN_TILE_ZOOM,
                  max_zoom=MAX_TILE_ZOOM):
         # type: (float, float, float, float, int, int) -> None
         """
-        :param west: longitude of the west boundary
-        :param south: latitude of the south boundary
-        :param east: longitude of the east boundary
-        :param north: latitude of the north boundary
+        :param min_x: longitude of the west boundary
+        :param min_y: latitude of the south boundary
+        :param max_x: longitude of the east boundary
+        :param max_y: latitude of the north boundary
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
         super(BoundingBoxTilesCoordinateGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
-        self.west = west
-        self.south = south
-        self.east = east
-        self.north = north
+        self.min_x = min_x
+        self.min_y = min_y
+        self.max_x = max_x
+        self.max_y = max_y
 
     @staticmethod
     def convert_mercantile(m_tile):
@@ -72,7 +70,7 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
     def generate_tiles_coordinates(self, zooms):
         # type: (List[int]) -> Iterator[Coordinate]
         """ Get the tiles overlapped by a geographic bounding box """
-        for m_tile in tiles(self.west, self.south, self.east, self.north,
+        for m_tile in tiles(self.min_x, self.min_y, self.max_x, self.max_y,
                             self.filter_zooms_in_range(zooms), True):
             yield BoundingBoxTilesCoordinateGenerator.\
                 convert_mercantile(m_tile)
