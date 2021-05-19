@@ -416,6 +416,17 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
             grouping_queue.put_nowait(top_left_child.down(1).right(1))
 
     print("[%s] Done bucketizing jobs - count by zoom %s" % (time.ctime(), counts_at_zoom))
+    # validate counts by zoom - expecting the equivalent of 4^10 zoom 10 jobs.
+    counts_at_zoom_sum = 0
+    for z in counts_at_zoom.keys():
+        count_at_this_zoom = counts_at_zoom[z]
+        zoom_10_equiv_count = count_at_this_zoom * (4 ** (10 - z))
+        counts_at_zoom_sum += zoom_10_equiv_count
+    if counts_at_zoom_sum == 4**10:
+        print("Count of jobs by zoom is correct")
+    else:
+        print("Count of jobs by zoom is off by %s" % counts_at_zoom_sum - 4**10)
+
     ordered_job_list = sorted(grouped_by_rawr_tile_size, key=lambda coord: all_sizes[coord], reverse=True)
     return ordered_job_list
 
