@@ -406,7 +406,7 @@ def _distribute_jobs_by_raw_tile_size(rawr_bucket, prefix, key_format_type, rawr
 
             if this_coord.zoom not in counts_at_zoom:
                 counts_at_zoom[this_coord.zoom] = 0
-            counts_at_zoom += 1
+            counts_at_zoom[this_coord.zoom] += 1
         else:
             top_left_child = this_coord.zoomBy(1)
 
