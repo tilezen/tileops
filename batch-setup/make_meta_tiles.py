@@ -197,6 +197,7 @@ class MissingTileFinder(object):
 
             with open(missing_high_file, 'w') as fh:
                 for coord in missing_high:
+                    print("REMOVEME: %s" % serialize_coord(coord))
                     fh.write(serialize_coord(coord) + "\n")
 
             print("[%s] Done splitting into high and low zoom lists" % (time.ctime()))
@@ -659,7 +660,6 @@ if __name__ == '__main__':
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    sys.exit()
 
     tile_specifier = TileSpecifier.from_coord_list(jobs_list, 4)
 
