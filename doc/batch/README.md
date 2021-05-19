@@ -126,4 +126,4 @@ After each build is finished, to rebuild the tiles that intersects with a boundi
 BBOX=-123.571730,45.263862,-118.386183,48.760348 /usr/bin/nohup /usr/local/bin/bbox_rebuild.sh &
 ```
 
-(the above command will rebuild all the rawr and meta tiles that wraps the bounding box BBOX_WEST=-123.571730 BBOX_SOUTH=45.263862 BBOX_EAST=-118.386183 BBOX_NORTH=48.760348)
+(the above command will rebuild all the rawr and meta tiles that wraps the bounding box min_x=-123.571730 min_y=45.263862 max_x=-118.386183 max_y=48.760348)
