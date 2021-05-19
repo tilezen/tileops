@@ -1,12 +1,12 @@
-from utils.tiles import BoundingBoxTilesCoordinateGenerator
+from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from ModestMaps.Core import Coordinate
 
 
 def test_tiles_within_bbox():
-    generator1 = BoundingBoxTilesCoordinateGenerator(-4.1494623,
-                                                    38.350205,
-                                                    3.321241,
-                                                    47.790958)
+    generator1 = BoundingBoxTileCoordinatesGenerator(-4.1494623,
+                                                     38.350205,
+                                                     3.321241,
+                                                     47.790958)
     res = generator1.generate_tiles_coordinates([5])
     expected = [Coordinate(11, 15, 5),
                 Coordinate(12, 15, 5),
@@ -14,7 +14,7 @@ def test_tiles_within_bbox():
                 Coordinate(12, 16, 5)]
     assert expected == [c for c in res]
 
-    generator2 = BoundingBoxTilesCoordinateGenerator(-122.185508,
+    generator2 = BoundingBoxTileCoordinatesGenerator(-122.185508,
                                                      47.587435,
                                                      -122.168342,
                                                      47.602600)
@@ -22,7 +22,7 @@ def test_tiles_within_bbox():
     expected = [Coordinate(357, 164, 10)]
     assert expected == [c for c in res]
 
-    generator3 = BoundingBoxTilesCoordinateGenerator(-122.188295,
+    generator3 = BoundingBoxTileCoordinatesGenerator(-122.188295,
                                                      47.556570,
                                                      -122.187670,
                                                      47.556808)
@@ -34,7 +34,7 @@ def test_tiles_within_bbox():
     zoomedCoord = coords[0].zoomTo(7).container()
     assert Coordinate(44, 20, 7) == zoomedCoord
 
-    generator4 = BoundingBoxTilesCoordinateGenerator(-123.571730,
+    generator4 = BoundingBoxTileCoordinatesGenerator(-123.571730,
                                                      45.263862,
                                                      -118.386183,
                                                      48.760348)

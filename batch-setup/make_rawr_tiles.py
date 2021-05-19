@@ -18,8 +18,8 @@ currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 
-from utils.tiles import BoundingBoxTilesCoordinateGenerator
-from utils.tiles import TilesCoordinateGenerator
+from utils.tiles import BoundingBoxTileCoordinatesGenerator
+from utils.tiles import TileCoordinatesGenerator
 
 
 # this struct exists to be passed into tilequeue's tilequeue_batch_enqueue
@@ -167,7 +167,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
                     rawr_bucket, region, date_prefix, retry_attempts,
                     tile_zoom=10, key_format_type='prefix-hash',
                     tile_coords_generator=None):
-    # type: (str, str, str, str, str, str, int, int, str, TilesCoordinateGenerator) -> None
+    # type: (str, str, str, str, str, str, int, int, str, TileCoordinatesGenerator) -> None
     """
     Finds out which jobs need to be run to have a complete RAWR tiles bucket,
     runs them and waits for them to complete. If the bucket still isn't
@@ -263,7 +263,7 @@ if __name__ == '__main__':
         min_x, min_y, max_x, max_y = list(map(float, bboxes))
         assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
         assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
-        generator = BoundingBoxTilesCoordinateGenerator(min_x=min_x,
+        generator = BoundingBoxTileCoordinatesGenerator(min_x=min_x,
                                                         min_y=min_y,
                                                         max_x=max_x,
                                                         max_y=max_y)

@@ -5,7 +5,7 @@ from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
 
 
-class TilesCoordinateGenerator(object):
+class TileCoordinatesGenerator(object):
     """
     Generate tiles EPSG:3857 coordinates from a list of zooms within a range
     """
@@ -41,7 +41,7 @@ class TilesCoordinateGenerator(object):
                     yield Coordinate(zoom=zoom, column=x, row=y)
 
 
-class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
+class BoundingBoxTileCoordinatesGenerator(TileCoordinatesGenerator):
     """ Generate the tiles overlapped by a geographic bounding box within a
     range """
 
@@ -56,7 +56,7 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
-        super(BoundingBoxTilesCoordinateGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
+        super(BoundingBoxTileCoordinatesGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
         self.min_x = min_x
         self.min_y = min_y
         self.max_x = max_x
@@ -72,5 +72,5 @@ class BoundingBoxTilesCoordinateGenerator(TilesCoordinateGenerator):
         """ Get the tiles overlapped by a geographic bounding box """
         for m_tile in tiles(self.min_x, self.min_y, self.max_x, self.max_y,
                             self.filter_zooms_in_range(zooms), True):
-            yield BoundingBoxTilesCoordinateGenerator.\
+            yield BoundingBoxTileCoordinatesGenerator.\
                 convert_mercantile(m_tile)

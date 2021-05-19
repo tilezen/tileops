@@ -11,7 +11,7 @@ import os
 import sys
 import shutil
 import tempfile
-from utils.tiles import BoundingBoxTilesCoordinateGenerator
+from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from tilequeue.tile import metatile_zoom_from_size
 from rds import ensure_dbs
 from tilequeue.tile import deserialize_coord
@@ -493,7 +493,7 @@ if __name__ == '__main__':
         min_x, min_y, max_x, max_y = list(map(float, bboxes))
         assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
         assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
-        generator = BoundingBoxTilesCoordinateGenerator(min_x=min_x,
+        generator = BoundingBoxTileCoordinatesGenerator(min_x=min_x,
                                                         min_y=min_y,
                                                         max_x=max_x,
                                                         max_y=max_y)
