@@ -182,13 +182,11 @@ class MissingTileFinder(object):
                         for this_zoom in range(zoom_max, split_zoom):
                             lower_zoom_job_coord = this_coord.zoomTo(this_zoom)
                             if job_set[lower_zoom_job_coord]:
-                                print("REMOVEME: Registered %s at lower zoom coord %s" % (serialize_coord(this_coord), serialize_coord(lower_zoom_job_coord)))
                                 missing_high[lower_zoom_job_coord] = True
                                 job_registered = True
                                 break
 
                         if not job_registered:
-                            print("REMOVEME: Fell back to registering %s at split zoom: %s" % (serialize_coord(this_coord), serialize_coord(lower_zoom_job_coord)))
                             missing_high[this_coord] = True
 
             with open(missing_low_file, 'w') as fh:
