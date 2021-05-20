@@ -8,8 +8,10 @@ from contextlib import contextmanager
 from collections import namedtuple
 import boto3
 import os
+import sys
 import shutil
 import tempfile
+from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from tilequeue.tile import metatile_zoom_from_size
 from rds import ensure_dbs
 from tilequeue.tile import deserialize_coord
@@ -19,6 +21,7 @@ from tileset import CoordSet
 from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
+from distutils.util import strtobool
 
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
@@ -28,10 +31,12 @@ class MissingTileFinder(object):
     """
     Finds tiles missing from an S3 bucket and provides convenience methods to
     navigate them.
+    If tile_coords_generator is provided, it will use that to generate missing tiles.
     """
 
     def __init__(self, missing_bucket, tile_bucket, src_date_prefix,
-                 dst_date_prefix, region, key_format_type, config, max_zoom):
+                 dst_date_prefix, region, key_format_type, config, max_zoom,
+                 tile_coords_generator):
         self.missing_bucket = missing_bucket
         self.tile_bucket = tile_bucket
         self.src_date_prefix = src_date_prefix
@@ -39,13 +44,15 @@ class MissingTileFinder(object):
         self.region = region
         self.key_format_type = key_format_type
         self.max_zoom = max_zoom
+        self.tile_coords_generator = tile_coords_generator
 
-        assert self.missing_bucket
-        assert self.tile_bucket
-        assert self.src_date_prefix
-        assert self.dst_date_prefix
-        assert self.region
-        assert self.key_format_type is not None
+        if not tile_coords_generator:
+            assert self.missing_bucket
+            assert self.tile_bucket
+            assert self.src_date_prefix
+            assert self.dst_date_prefix
+            assert self.region
+            assert self.key_format_type is not None
 
         with open(config, 'r') as fh:
             conf = yaml.load(fh.read())
@@ -130,8 +137,31 @@ class MissingTileFinder(object):
                '-max-zoom', str(self.max_zoom),
                stdout=filename)
 
+    def generate_missing_tile_coords(self, try_generator=False):
+        # type: () -> List[Coordinate]
+        """ generate the missing tiles coordinates for low/high-zoom
+            splitting
+            :param try_generator: if set, it will to use the preset tile_coords_generator if that's available
+        """
+        tmpdir = tempfile.mkdtemp()
+        try:
+            if try_generator and bool(self.tile_coords_generator):
+                print("[make_meta_tiles] generate missing tiles coords "
+                      "using customized generator")
+                return [coord for coord in self.tile_coords_generator.generate_tiles_coordinates([])]
+            else:
+                self.run_batch_job()
+                missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
+                self.read_metas_to_file(missing_meta_file, compress=True)
+                with gzip.open(missing_meta_file, 'r') as fh:
+                    return [deserialize_coord(line) for line in fh]
+        finally:
+            shutil.rmtree(tmpdir)
+
     @contextmanager
-    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs):
+    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs,
+                            try_generator):
+        # type: (int, int, CoordSet) -> Iterator[MissingTiles]
         """
         To be used in a with-statement. Yields a MissingTiles object, giving
         information about the tiles which are missing.
@@ -142,47 +172,39 @@ class MissingTileFinder(object):
         at zoom_max.
         """
 
-        self.run_batch_job()
         tmpdir = tempfile.mkdtemp()
         try:
-            missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
             missing_high_file = os.path.join(tmpdir, 'missing.high.txt')
-
-            self.read_metas_to_file(missing_meta_file, compress=True)
 
             print("[make_meta_tiles] Splitting into high and low zoom lists")
 
             # contains zooms 0 until group zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.
-            missing_low = CoordSet(zoom_max)
+            missing_low = CoordSet(max_zoom=zoom_max)  # 7
 
             # contains job coords at either zoom_max or split_zoom only.
             # zoom_max is a misnomer here, as it's always less than or equal to
             # split zoom?
-            missing_high = CoordSet(split_zoom, min_zoom=zoom_max)
+            missing_high = CoordSet(min_zoom=zoom_max, max_zoom=split_zoom)
 
-            with gzip.open(missing_meta_file, 'r') as fh:
-                for line in fh:
-                    c = deserialize_coord(line)
-                    if c.zoom < split_zoom:
-                        # in order to not have too many jobs in the queue, we
-                        # group the low zoom jobs to the zoom_max (usually 7)
-                        if c.zoom > zoom_max:
-                            c = c.zoomTo(zoom_max).container()
-
-                        missing_low[c] = True
-
-                    else:
-                        # if the group of jobs at zoom_max would be too big
-                        # (according to big_jobs[]) then enqueue the original
-                        # coordinate. this is to prevent a "long tail" of huge
-                        # job groups.
-                        job_coord = c.zoomTo(zoom_max).container()
-                        if not big_jobs[job_coord]:
-                            c = job_coord
-
-                        missing_high[c] = True
+            coords = self.generate_missing_tile_coords(try_generator)
+            for c in coords:
+                if c.zoom < split_zoom:  # 10
+                    # in order to not have too many jobs in the queue, we
+                    # group the low zoom jobs to the zoom_max (usually 7)
+                    if c.zoom > zoom_max:  # 7
+                        c = c.zoomTo(zoom_max).container()
+                    missing_low[c] = True
+                else:
+                    # if the group of jobs at zoom_max would be too big
+                    # (according to big_jobs[]) then enqueue the original
+                    # coordinate. this is to prevent a "long tail" of huge
+                    # job groups.
+                    job_coord = c.zoomTo(zoom_max).container()  # 7
+                    if not big_jobs[job_coord]:
+                        c = job_coord
+                    missing_high[c] = True
 
             with open(missing_low_file, 'w') as fh:
                 for coord in missing_low:
@@ -275,6 +297,7 @@ def _big_jobs(rawr_bucket, prefix, key_format_type, rawr_zoom, group_zoom,
     # tasks, which means we don't waste memory maintaining a huge queue of
     # pending tasks. and when something goes wrong, the stacktrace isn't buried
     # in a million others.
+
     num_coords = 1 << group_zoom
     for x in range(num_coords):
         # kick off tasks async. each one knows its own coordinate, so we only
@@ -341,23 +364,25 @@ class LowZoomLense(object):
 class TileRenderer(object):
 
     def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max,
-                 allowed_missing_tiles=0):
+                 allowed_missing_tiles=0, tile_coords_generator=None):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
         self.split_zoom = split_zoom
         self.zoom_max = zoom_max
         self.allowed_missing_tiles = allowed_missing_tiles
+        self.tile_coords_generator = tile_coords_generator
 
-    def _missing(self):
+    def _missing(self, try_generator):
         return self.tile_finder.missing_tiles_split(
-            self.split_zoom, self.zoom_max, self.big_jobs)
+            self.split_zoom, self.zoom_max, self.big_jobs, try_generator)
 
     def render(self, num_retries, lense):
         mem_max = 32 * 1024  # 32 GiB
 
         for retry_number in range(0, num_retries):
             mem_multiplier = 1.5 ** retry_number
-            with self._missing() as missing:
+            try_generator = (retry_number == 0)
+            with self._missing(try_generator) as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
 
@@ -381,7 +406,7 @@ class TileRenderer(object):
                                   check_metatile_exists, mem_multiplier, mem_max)
 
         else:
-            with self._missing() as missing:
+            with self._missing(False) as missing:
                 missing_tile_file = lense.missing_file(missing)
                 count = wc_line(missing_tile_file)
                 sample = head_lines(missing_tile_file, 10)
@@ -433,6 +458,10 @@ if __name__ == '__main__':
     parser.add_argument('--allowed-missing-tiles', default=2, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
+    parser.add_argument('--use-tile-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
+                        const=True, default=False)
+    parser.add_argument('--tile-coords-generator-bbox', type=str,
+                        help="Comma separated coordinates of a bounding box min_x, min_y, max_x, max_y")
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -448,7 +477,6 @@ if __name__ == '__main__':
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
-        import sys
         print("[make_meta_tiles] ERROR: Need environment variable "
               "AWS_DEFAULT_REGION to be set.")
         sys.exit(1)
@@ -457,15 +485,29 @@ if __name__ == '__main__':
     assert args.metatile_size > 0
     assert args.metatile_size < 100
     metatile_max_zoom = 16 - metatile_zoom_from_size(args.metatile_size)
+
+    generator = None
+    if args.use_tile_coords_generator:
+        bboxes = args.tile_coords_generator_bbox.split(',')
+        assert len(bboxes) == 4, 'Seed config: custom bbox {} does not have exactly four elements!'.format(bboxes)
+        min_x, min_y, max_x, max_y = list(map(float, bboxes))
+        assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
+        assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
+        generator = BoundingBoxTileCoordinatesGenerator(min_x=min_x,
+                                                        min_y=min_y,
+                                                        max_x=max_x,
+                                                        max_y=max_y)
+        print("[make_meta_tiles] Rebuild using bbox: " + args.tile_coords_generator_bbox)
+
     tile_finder = MissingTileFinder(
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
-        region, args.key_format_type, args.config, metatile_max_zoom)
+        region, args.key_format_type, args.config, metatile_max_zoom, generator)
 
     big_jobs = _big_jobs(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles, generator)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 

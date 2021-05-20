@@ -117,3 +117,13 @@ When running the enqueue, update the configuration file to contain the appropria
 *NOTE*: Jobs will be enqueued at the batch `queue-zoom` configuration value. This is expected to be 7.
 The `pyramid` option to `batch-enqueue` will additionally enqueue all tiles lower than the `queue-zoom`, which is required for low zoom tiles. Assuming a `queue-zoom` of 7, the jobs enqueued will be zooms `[0, 7]` with `--pyramid`.
 Furthermore, it also takes `--tile` and `--file` arguments. `--tile` will only enqueue a single tile, and `--file` will enqueue all tiles in a particular file. These are useful for initially testing a single tile to ensure that batch is set up correctly, and for iterating on enqueueing additional tiles to reprocess.
+
+
+# Rebuild
+After each build is finished, to rebuild the tiles that intersects with a bounding box, you can logon to the tiles ops runner EC2 instance, and trigger a command similar to the following
+
+```
+BBOX=-123.571730,45.263862,-118.386183,48.760348 /usr/bin/nohup /usr/local/bin/bbox_rebuild.sh &
+```
+
+(the above command will rebuild all the rawr and meta tiles that wraps the bounding box min_x=-123.571730 min_y=45.263862 max_x=-118.386183 max_y=48.760348)

@@ -12,7 +12,7 @@ The instructions below will assume Amazon Linux, but similar packages should exi
 
 1. While in the `tileops` directory, create a Pipenv environment:
 
-       pipenv install
+       pipenv install -d
 
 1. Use Pipenv to enter a shell in the virtual environment:
 

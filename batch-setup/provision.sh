@@ -138,6 +138,28 @@ python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$
 EOF
 chmod +x /usr/local/bin/run.sh
 
+
+cat > /usr/local/bin/bbox_rebuild.sh <<EOF
+#!/bin/bash
+
+. /usr/local/venv/bin/activate
+. /usr/local/etc/planet-env.sh
+export PATH=/usr/local/bin:$PATH
+
+# stop on error
+set -e
+# echo commands before executing them (useful to check that the arguments are correct)
+set -x
+
+python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas $NUM_DB_REPLICAS --max-vcpus $MAX_VCPUS $RUN_ID --missing-bucket $MISSING_BUCKET --meta-date-prefix $META_DATE_PREFIX $RAWR_BUCKET $META_BUCKET $DB_PASSWORD --overrides $JOB_ENV_OVERRIDES
+
+python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix --use-tile-coords-generator --tile-coords-generator-bbox=$BBOX $RAWR_BUCKET $RUN_ID $MISSING_BUCKET
+
+python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix $META_DATE_PREFIX --missing-bucket $MISSING_BUCKET --key-format-type hash-prefix --metatile-size $METATILE_SIZE --use-tile-coords-generator --tile-coords-generator-bbox=$BBOX $RAWR_BUCKET $META_BUCKET $RUN_ID
+EOF
+chmod +x /usr/local/bin/bbox_rebuild.sh
+
+
 # start script in nohup to preserve logs, and disown it so that this script can exit but allow run.sh to continue.
 cd /home/ec2-user
 sudo -u ec2-user /usr/bin/nohup /usr/local/bin/run.sh &
