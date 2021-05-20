@@ -40,8 +40,8 @@ def test_tiles_within_bbox():
                                                      48.760348)
 
     res = generator4.generate_tiles_coordinates([10])
-    zoomedCoords = set(coord.zoomTo(7).container() for coord in res)
+    zoomedCoords = {coord.zoomTo(7).container() for coord in res}
 
-    assert set([Coordinate(44, 20, 7), Coordinate(44, 21, 7), Coordinate(45, 20, 7), Coordinate(45, 21, 7)]) == \
+    assert {Coordinate(44, 20, 7), Coordinate(44, 21, 7), Coordinate(45, 20, 7), Coordinate(45, 21, 7)} == \
            zoomedCoords
 

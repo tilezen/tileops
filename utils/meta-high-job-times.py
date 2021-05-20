@@ -11,7 +11,7 @@ parser.add_argument('date', help='Date prefix to use, YYMMDD')
 args = parser.parse_args()
 
 job_queue = 'job-queue-' + args.date
-prefix = 'meta-batch-%s-' % (args.date,)
+prefix = f'meta-batch-{args.date}-'
 batch = boto3.client('batch')
 
 next_token = None

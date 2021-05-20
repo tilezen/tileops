@@ -41,7 +41,7 @@ def print_failures(cwlogs, log_stream_name):
                     coord = msg['coord']
                     coord_str = "%d/%d/%d" % (coord['z'], coord['x'],
                                               coord['y'])
-                    print("%15s: %s" % (coord_str, msg['exception']))
+                    print("{:>15}: {}".format(coord_str, msg['exception']))
                     trace = msg.get('stacktrace')
                     if trace:
                         print("    " + trace.replace("|", "\n    "))
@@ -81,5 +81,5 @@ for i in range(0, num_chunks + 1):
         name = job['jobName']
         last_attempt = job['attempts'][-1]
         log_stream_name = last_attempt['container']['logStreamName']
-        print("=== %s ===\n" % (name,))
+        print(f"=== {name} ===\n")
         print_failures(cwlogs, log_stream_name)

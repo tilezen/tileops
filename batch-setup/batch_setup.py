@@ -15,7 +15,7 @@ def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
             RoleName=role_name,
         )
         role_arn = response['Role']['Arn']
-        print("Found role %s at %s" % (role_name, role_arn))
+        print(f"Found role {role_name} at {role_arn}")
     except boto_iam.exceptions.NoSuchEntityException:
         response = boto_iam.create_role(
             Path=role_path,
@@ -23,7 +23,7 @@ def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
             AssumeRolePolicyDocument=json.dumps(role_document),
         )
         role_arn = response['Role']['Arn']
-        print("Created role %s at %s" % (role_name, role_arn))
+        print(f"Created role {role_name} at {role_arn}")
 
     return role_arn
 
@@ -93,7 +93,7 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         ]
     )
     subnet_ids = [s['SubnetId'] for s in response['Subnets']]
-    print("Found subnets %s on VPC %s" % (subnet_ids, vpc_id))
+    print(f"Found subnets {subnet_ids} on VPC {vpc_id}")
 
     # Create the batch service role
     # https://docs.aws.amazon.com/batch/latest/userguide/service_IAM_role.html

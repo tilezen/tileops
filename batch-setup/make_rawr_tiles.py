@@ -44,8 +44,8 @@ def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                   key_format_type, config, zoom, tile_coords_generator):
     from make_meta_tiles import MissingTileFinder
     if bool(tile_coords_generator):
-        return set([c for c in tile_coords_generator.
-                   generate_tiles_coordinates([zoom])])
+        return {c for c in tile_coords_generator.
+                   generate_tiles_coordinates([zoom])}
     else:
         present = set()
         finder = MissingTileFinder(
@@ -79,7 +79,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
 
     # the rawr tiles of `tile_zoom` is actually built by AWS batch jobs of
     # `job_zoom` so we need to do a zoomTo here to find the corresponding jobs
-    jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
+    jobs = {coord.zoomTo(job_zoom).container() for coord in tiles}
 
     print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
 
@@ -103,7 +103,7 @@ def wc_line(filename):
     line utility `wc -l`.
     """
 
-    with open(filename, 'r') as fh:
+    with open(filename) as fh:
         count = sum(1 for _ in fh)
     return count
 
@@ -116,7 +116,7 @@ def head_lines(filename, n_lines):
 
     sample = []
 
-    with open(filename, 'r') as fh:
+    with open(filename) as fh:
         try:
             for _ in range(n_lines):
                 sample.append(next(fh).strip())
@@ -176,7 +176,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
     """
 
     assert os.path.isfile(rawr_config_file), rawr_config_file
-    with open(rawr_config_file, 'r') as fh:
+    with open(rawr_config_file) as fh:
         config = yaml.load(fh.read())
         job_zoom = config['batch']['queue-zoom']
         logging_config = config['logging']['config']
@@ -259,10 +259,10 @@ if __name__ == '__main__':
     generator = None
     if args.use_tile_coords_generator:
         bboxes = args.tile_coords_generator_bbox.split(',')
-        assert len(bboxes) == 4, 'Seed config: custom bbox {} does not have exactly four elements!'.format(bboxes)
+        assert len(bboxes) == 4, f'Seed config: custom bbox {bboxes} does not have exactly four elements!'
         min_x, min_y, max_x, max_y = list(map(float, bboxes))
-        assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
-        assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
+        assert min_x < max_x, f'Invalid bbox. X: {min_x} not less than {max_x}'
+        assert min_y < max_y, f'Invalid bbox. Y: {min_y} not less than {max_y}'
         generator = BoundingBoxTileCoordinatesGenerator(min_x=min_x,
                                                         min_y=min_y,
                                                         max_x=max_x,

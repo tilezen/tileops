@@ -27,7 +27,7 @@ from distutils.util import strtobool
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
 
 
-class MissingTileFinder(object):
+class MissingTileFinder:
     """
     Finds tiles missing from an S3 bucket and provides convenience methods to
     navigate them.
@@ -54,7 +54,7 @@ class MissingTileFinder(object):
             assert self.region
             assert self.key_format_type is not None
 
-        with open(config, 'r') as fh:
+        with open(config) as fh:
             conf = yaml.load(fh.read())
             self.job_queue_name = conf['batch']['job-queue']
             self.job_definition = conf['batch']['job-definition']
@@ -132,8 +132,8 @@ class MissingTileFinder(object):
                '-bucket', self.missing_bucket,
                '-date-prefix', self.dst_date_prefix,
                '-region', self.region,
-               '-present=%r' % (bool(present),),
-               '-compress-output=%r' % (bool(compress),),
+               f'-present={bool(present)!r}',
+               f'-compress-output={bool(compress)!r}',
                '-max-zoom', str(self.max_zoom),
                stdout=filename)
 
@@ -237,7 +237,7 @@ class MissingTileFinder(object):
             shutil.rmtree(tmpdir)
 
 
-class _JobSizer(object):
+class _JobSizer:
     """
     Individual instance of a callable which can evaluate the size of a job
     (i.e: grouped set of RAWR tiles).
@@ -340,7 +340,7 @@ def update_memory_request(cfg, mem_multiplier, mem_max):
 # adaptor class for MissingTiles to see just the high zoom parts, this is used
 # along with the LowZoomLense to loop over missing tiles generically but
 # separately.
-class HighZoomLense(object):
+class HighZoomLense:
     def __init__(self, config):
         self.config = config
         self.description = "high zoom tiles"
@@ -349,7 +349,7 @@ class HighZoomLense(object):
         return missing.high_zoom_file
 
 
-class LowZoomLense(object):
+class LowZoomLense:
     def __init__(self, config):
         self.config = config
         self.description = "low zoom tiles"
@@ -361,7 +361,7 @@ class LowZoomLense(object):
 # abstracts away the logic for a re-rendering loop, splitting between high and
 # low zoom tiles and stopping if all the tiles aren't rendered within a
 # certain number of retries.
-class TileRenderer(object):
+class TileRenderer:
 
     def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max,
                  allowed_missing_tiles=0, tile_coords_generator=None):
@@ -489,10 +489,10 @@ if __name__ == '__main__':
     generator = None
     if args.use_tile_coords_generator:
         bboxes = args.tile_coords_generator_bbox.split(',')
-        assert len(bboxes) == 4, 'Seed config: custom bbox {} does not have exactly four elements!'.format(bboxes)
+        assert len(bboxes) == 4, f'Seed config: custom bbox {bboxes} does not have exactly four elements!'
         min_x, min_y, max_x, max_y = list(map(float, bboxes))
-        assert min_x < max_x, 'Invalid bbox. X: {} not less than {}'.format(min_x, max_x)
-        assert min_y < max_y, 'Invalid bbox. Y: {} not less than {}'.format(min_y, max_y)
+        assert min_x < max_x, f'Invalid bbox. X: {min_x} not less than {max_x}'
+        assert min_y < max_y, f'Invalid bbox. Y: {min_y} not less than {max_y}'
         generator = BoundingBoxTileCoordinatesGenerator(min_x=min_x,
                                                         min_y=min_y,
                                                         max_x=max_x,

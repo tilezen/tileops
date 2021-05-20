@@ -23,7 +23,7 @@ def delete_all_job_definitions(batch, run_id):
         response = batch.describe_job_definitions(nextToken=next_token)
 
     for def_name in job_definitions:
-        print("Deleting job definition %r" % (def_name,))
+        print(f"Deleting job definition {def_name!r}")
         batch.deregister_job_definition(jobDefinition=def_name)
 
 
@@ -41,7 +41,7 @@ def delete_job_queue(batch, job_queue, terminate):
     wait_for_jobs_to_finish(job_queue)
 
     # disable the job queue
-    print("Disabling job queue %r" % (job_queue,))
+    print(f"Disabling job queue {job_queue!r}")
     batch.update_job_queue(jobQueue=job_queue, state='DISABLED')
 
     print("Waiting for job queue to disable.")
@@ -52,7 +52,7 @@ def delete_job_queue(batch, job_queue, terminate):
         state = q['state']
         status = q['status']
         if status == 'UPDATING':
-            print("Queue %r is updating, waiting..." % (job_queue,))
+            print(f"Queue {job_queue!r} is updating, waiting...")
 
         elif state == 'DISABLED':
             break
@@ -65,7 +65,7 @@ def delete_job_queue(batch, job_queue, terminate):
         sleep(15)
 
     # delete the job queue
-    print("Deleting job queue %r" % (job_queue,))
+    print(f"Deleting job queue {job_queue!r}")
     batch.delete_job_queue(jobQueue=job_queue)
 
     # wait for queue to be deleted, otherwise it causes issues when we try to
@@ -98,7 +98,7 @@ def terminate_instances_by_tag(tags):
         for instance in reservation['Instances']:
             instance_id = instance['InstanceId']
             if instance['State']['Name'] == 'running':
-                print("Terminating instance %r" % (instance_id,))
+                print(f"Terminating instance {instance_id!r}")
                 ec2.terminate_instances(InstanceIds=[instance_id])
 
 
@@ -121,14 +121,14 @@ def delete_role(name):
                 InstanceProfileName=ipname,
                 RoleName=role['RoleName'],
             )
-        print("Deleting instance profile %r" % (ipname,))
+        print(f"Deleting instance profile {ipname!r}")
         iam.delete_instance_profile(InstanceProfileName=ipname)
 
     # next, detach all policies
     paginator = iam.get_paginator('list_attached_role_policies')
     for page in paginator.paginate(RoleName=name):
         for policy in page['AttachedPolicies']:
-            print("Detaching role policy %r" % (policy['PolicyName'],))
+            print("Detaching role policy {!r}".format(policy['PolicyName']))
             iam.detach_role_policy(
                 RoleName=name,
                 PolicyArn=policy['PolicyArn'],
@@ -146,7 +146,7 @@ def delete_role(name):
             )
 
     # finally, delete the role
-    print("Deleting role %r" % (name,))
+    print(f"Deleting role {name!r}")
     iam.delete_role(RoleName=name)
 
 
@@ -157,13 +157,13 @@ def delete_policy(name):
     policy = find_policy(iam, name)
 
     if policy:
-        print("Deleting policy %r (arn=%r)" % (name, policy['Arn']))
+        print("Deleting policy {!r} (arn={!r})".format(name, policy['Arn']))
         iam.delete_policy(PolicyArn=policy['Arn'])
 
 
 def delete_compute_env(batch, compute_env):
     # disable the compute environment
-    print("Disabling compute environment %r" % (compute_env,))
+    print(f"Disabling compute environment {compute_env!r}")
     batch.update_compute_environment(
         computeEnvironment=compute_env, state='DISABLED')
 
@@ -176,7 +176,7 @@ def delete_compute_env(batch, compute_env):
         state = env['state']
         status = env['status']
         if status == 'UPDATING':
-            print("Environment %r is updating, waiting..." % (compute_env,))
+            print(f"Environment {compute_env!r} is updating, waiting...")
 
         elif state == 'DISABLED':
             break
@@ -189,7 +189,7 @@ def delete_compute_env(batch, compute_env):
         sleep(15)
 
     # delete the compute environment
-    print("Deleting compute environment %r" % (compute_env,))
+    print(f"Deleting compute environment {compute_env!r}")
     batch.delete_compute_environment(computeEnvironment=compute_env)
 
 

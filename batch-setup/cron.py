@@ -561,7 +561,7 @@ if __name__ == '__main__':
 
         # otherwise, default to a value constructed from the bucket prefix.
         if args.bucket_prefix:
-            return '%s-%s-%s' % (args.bucket_prefix, bucket_function, region)
+            return f'{args.bucket_prefix}-{bucket_function}-{region}'
 
         # finally, error out if we can't figure out a value.
         raise RuntimeError('Must provide either --bucket-prefix or %s.'
@@ -597,7 +597,7 @@ if __name__ == '__main__':
     smgr = boto3.client('secretsmanager')
     smgr_name = (args.db_password_secret_name or
                  ('TilesDatabasePassword' + args.run_id))
-    smgr_description = 'Tiles database password for %s import' % (args.run_id,)
+    smgr_description = f'Tiles database password for {args.run_id} import'
     db_password = generate_or_update_password(
         smgr, args.db_password, smgr_name, smgr_description)
 
@@ -625,7 +625,7 @@ if __name__ == '__main__':
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(script_dir, 'provision.sh'), 'r') as fh:
+    with open(os.path.join(script_dir, 'provision.sh')) as fh:
         provision = fh.read() % provision_params
         provision_base64 = b64encode(provision.encode('utf8'))
 
@@ -669,8 +669,8 @@ if __name__ == '__main__':
     instance = response['Instances'][0]
     instance_id = instance['InstanceId']
 
-    print('reservation ID: %s' % (reservation_id,))
-    print('instance ID:    %s' % (instance_id,))
+    print(f'reservation ID: {reservation_id}')
+    print(f'instance ID:    {instance_id}')
 
     print('Waiting for instance to come up...')
     waiter = ec2.get_waiter('instance_status_ok')
@@ -678,4 +678,4 @@ if __name__ == '__main__':
 
     response = ec2.describe_instances(InstanceIds=[instance_id])
     instance = response['Reservations'][0]['Instances'][0]
-    print('public IP:      %r' % (instance.get('PublicIpAddress'),))
+    print('public IP:      {!r}'.format(instance.get('PublicIpAddress')))

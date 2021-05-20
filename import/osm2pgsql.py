@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 
 def flat_nodes_key(run_id):
-    return 'flat-nodes-%s/flat.nodes' % (run_id,)
+    return f'flat-nodes-{run_id}/flat.nodes'
 
 
 def does_flat_nodes_file_exist(bucket, run_id):
@@ -62,7 +62,7 @@ def reset_database(instance, db):
 
 
 def login_key(run_id):
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = f"import-private-key-{run_id}.pem"
 
     if not os.path.exists(filename):
         return None
@@ -82,7 +82,7 @@ def create_login_key(ec2, run_id, key_pair_name):
     pem = response['KeyMaterial']
     key = RSAKey.from_private_key(BytesIO(pem))
 
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = f"import-private-key-{run_id}.pem"
     with open(filename, 'w') as fh:
         key.write_private_key(fh)
 
@@ -268,7 +268,7 @@ def start_osm2pgsql_instance(
     return instance_id
 
 
-class Instance(object):
+class Instance:
     """
     Represents an EC2 instance that we can run scripts on.
     """
@@ -310,7 +310,7 @@ class Instance(object):
                 yield ssh
 
         except Exception as e:
-            raise RuntimeError("ERROR: %s (on ubuntu@%s)" % (e, ip))
+            raise RuntimeError(f"ERROR: {e} (on ubuntu@{ip})")
 
         finally:
             ssh.close()
@@ -388,7 +388,7 @@ class Instance(object):
                     stderr.read()
                     status = stdout.read().rstrip().decode('utf8')
 
-                    print("[%s] Import status: %r" % (time_now, status))
+                    print(f"[{time_now}] Import status: {status!r}")
                     if status == "finished":
                         break
                     elif status == "failed":
@@ -415,7 +415,7 @@ def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
     waiter.wait(InstanceIds=[import_instance_id])
     print("Instance terminated.")
 
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = f"import-private-key-{run_id}.pem"
     os.remove(filename)
     key_pair_name = 'osm2pgsql-import-' + run_id
     ec2.delete_key_pair(KeyName=key_pair_name)

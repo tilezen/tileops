@@ -164,9 +164,9 @@ def s3_policy(bucket_or_buckets, date_prefix, allow_write=False):
     for bucket in buckets:
         object_resources.extend([
             # allow access to objects under the date prefix
-            "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+            f"arn:aws:s3:::{bucket}/{date_prefix}/*",
             # and also objects under a hash + date prefix
-            "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
+            f"arn:aws:s3:::{bucket}/*/{date_prefix}/*",
         ])
         bucket_resources.append("arn:aws:s3:::%s" % (bucket))
 
@@ -234,7 +234,7 @@ def kebab_to_camel(name):
 
 def ensure_job_role_arn(iam, run_id, name, buckets, date_prefixes):
     role_name = kebab_to_camel(
-        "batch-%s-%s" % (name, run_id))
+        f"batch-{name}-{run_id}")
 
     arn = None
     try:
@@ -285,7 +285,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefixes):
         Description='Role to perform %s batch jobs in %s/%s environment.' %
         (image_name, date_prefixes.rawr, date_prefixes.meta))
 
-    class RolePolicies(object):
+    class RolePolicies:
         def __init__(self, iam, role_name):
             self.iam = iam
             self.role_name = role_name
@@ -349,7 +349,7 @@ def make_job_definitions(
         retry_value = retry_attempts[name] \
             if isinstance(retry_attempts, dict) else retry_attempts
 
-        job_name = "%s-%s" % (name, run_id)
+        job_name = f"{name}-{run_id}"
         definition = {
             'name': job_name,
             'job-role-arn': job_role_arn,

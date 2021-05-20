@@ -39,7 +39,7 @@ def ensure_ecr(run_id):
 
     repo_uris = {}
     for repo_name in repo_names:
-        full_name = 'tilezen/%s-%s' % (repo_name, run_id)
+        full_name = f'tilezen/{repo_name}-{run_id}'
         repo_uris[repo_name] = ensure_repo(ecr, full_name)
 
     return repo_uris

@@ -9,5 +9,5 @@ parser.add_argument("--reason", help="Reason message to use. ",
                     "misconfiguration.")
 args = parser.parse_args()
 
-job_queue = 'job-queue-%s' % (args.date,)
+job_queue = f'job-queue-{args.date}'
 terminate_all_jobs(job_queue, args.reason)

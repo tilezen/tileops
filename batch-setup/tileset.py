@@ -2,7 +2,7 @@ from ModestMaps.Core import Coordinate
 from itertools import chain
 
 
-class BitSet(object):
+class BitSet:
     """
     A single-zoom set of Coordinates or, equivalently, a mapping from
     Coordinates to booleans.
@@ -64,7 +64,7 @@ class BitSet(object):
         return BitSetIterator(self)
 
 
-class BitSetIterator(object):
+class BitSetIterator:
     """
     Helper class to iterate over the True bits in a BitSet, yielding their
     Coordinates.
@@ -95,7 +95,7 @@ class BitSetIterator(object):
                 return coord
 
 
-class CoordSet(object):
+class CoordSet:
     """
     A set of Coordinates, implemented as a mapping of Coordinate to True/False.
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     assert list(c) == []
     c[zoom0_coord] = True
     c[zoom10_coord] = True
-    assert set(c) == set([zoom0_coord, zoom10_coord])
+    assert set(c) == {zoom0_coord, zoom10_coord}
 
     c = CoordSet(10, min_zoom=7)
     c[Coordinate(zoom=11, column=3, row=1)] = True

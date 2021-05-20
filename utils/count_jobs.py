@@ -35,7 +35,7 @@ def count_jobs(batch, job_queue):
 
 def log_msg(msg):
     now = datetime.datetime.now()
-    print("[%s] %s" % (now.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    print("[{}] {}".format(now.strftime("%Y-%m-%d %H:%M:%S"), msg))
 
 
 parser = argparse.ArgumentParser(description="""
@@ -47,7 +47,7 @@ parser.add_argument("--interval", type=int, default=300, help="Number of "
                     "seconds between updates.")
 args = parser.parse_args()
 
-job_queue = 'job-queue-%s' % (args.date,)
+job_queue = f'job-queue-{args.date}'
 batch = boto3.client('batch')
 
 interval = args.interval

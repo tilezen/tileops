@@ -5,7 +5,7 @@ from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
 
 
-class TileCoordinatesGenerator(object):
+class TileCoordinatesGenerator:
     """
     Generate tiles EPSG:3857 coordinates from a list of zooms within a range
     """
@@ -56,7 +56,7 @@ class BoundingBoxTileCoordinatesGenerator(TileCoordinatesGenerator):
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
-        super(BoundingBoxTileCoordinatesGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
+        super().__init__(min_zoom=min_zoom, max_zoom=max_zoom)
         self.min_x = min_x
         self.min_y = min_y
         self.max_x = max_x
