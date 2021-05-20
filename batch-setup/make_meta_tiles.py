@@ -318,7 +318,7 @@ class TileSpecifier(object):
         spec_dict = {}
         for i in range(len(coord_list)):
             coord_str = serialize_coord(coord_list[i])
-            spec_dict[coord_str] = {TileSpecifier.ORDER_KEY: i}
+            spec_dict[coord_str] = {TileSpecifier.ORDER_KEY: i, TileSpecifier.MEM_GB_KEY: default_mem_gb}
 
         return TileSpecifier(default_mem_gb, spec_dict)
 
@@ -347,7 +347,7 @@ class TileSpecifier(object):
         returns default_gb
         """
         if coord_str in self.spec_dict:
-            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024
+            return self.spec_dict[coord_str][self.MEM_GB_KEY] * 1024 or self.default_mem_gb
         else:
             return self.default_mem_gb * 1024
 
@@ -478,7 +478,7 @@ def enqueue_tiles(config_file, tile_list_file, check_metatile_exists, tile_speci
 
         # now that we know what we want, pick something AWS actually supports
         viable_mem_request, required_min_cpus = viable_container_overrides(adjusted_mem)
-
+        print("REMOVEME: [%s] enqueueing %s at %s mem mb and %s cpus" % (time.ctime(), coord_line, viable_mem_request, required_min_cpus))
         update_container_overrides(cfg, viable_mem_request, mem_max, required_min_cpus)
 
         args = BatchEnqueueArgs(config_file, coord_line, None, None)
@@ -566,17 +566,6 @@ class TileRenderer(object):
                     % (count, lense.description, num_retries, ', '.join(sample)))
 
 
-def create_tile_specifier(tile_specifier_file):
-    tile_specifier = TileSpecifier()
-    if tile_specifier_file is not None:
-        try:
-            tile_specifier = TileSpecifier.from_ordering_file(tile_specifier_file, default_mem_gb=8)
-        except:
-            print("Error creating TileSpecifier, will use the default.  Error details: {}".format(sys.exc_info()[0]))
-
-    return tile_specifier
-
-
 def make_coord_set(coords, max_zoom, min_zoom):
     coord_set = CoordSet(max_zoom, min_zoom)
     for coord in coords:
@@ -657,7 +646,6 @@ if __name__ == '__main__':
     jobs_list = _distribute_jobs_by_raw_tile_size(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
         split_zoom, zoom_max, args.size_threshold)
-
 
     tile_specifier = TileSpecifier.from_coord_list(jobs_list, 4)
 
