@@ -460,8 +460,8 @@ if __name__ == '__main__':
                         'to continue the build process.')
     parser.add_argument('--use-tile-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
                         const=True, default=False)
-    parser.add_argument('--tile-coords-generator-bbox', help="Comma separated coordinates of a bounding box "
-                                                             "min_x, min_y, max_x, max_y")
+    parser.add_argument('--tile-coords-generator-bbox', type=str,
+                        help="Comma separated coordinates of a bounding box min_x, min_y, max_x, max_y")
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
