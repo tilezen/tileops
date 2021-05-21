@@ -2,7 +2,10 @@ from ModestMaps.Core import Coordinate
 from collections import namedtuple
 from contextlib import contextmanager
 from tilequeue.command import make_config_from_argparse
+from tilequeue.command import find_job_coords_for
 from tilequeue.command import tilequeue_batch_enqueue
+from tilequeue.store import S3TileKeyGenerator
+from tilequeue.store import KeyFormatType
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
 import boto3
@@ -20,6 +23,7 @@ sys.path.append(parentdir)
 
 from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from utils.tiles import TileCoordinatesGenerator
+from utils.tiles import S3TileVerifier
 
 
 # this struct exists to be passed into tilequeue's tilequeue_batch_enqueue
@@ -40,17 +44,40 @@ def all_tiles_at(zoom):
             yield Coordinate(zoom=zoom, column=x, row=y)
 
 
+def get_tile_coords_rebuild_paths(date_prefix, key_format_type_str, job_coords, target_zoom):
+    # type: (str, str, List[Coordinate], int) -> List[str]
+    """
+    Used when tile_coords_generator is used. It will return the s3 paths of the tiles that need to be rebuilt.
+
+    Note: we could have directly print out the paths without needing to call tilequeue.command.find_job_coords_for
+    because the current setup hardcodes target_zoom to be 10 in both tilequeue and here in tileops.
+    However that is too weak a contract which may be broken one day, so for future safety,
+    we calls find_job_coords_for method to print out the tile paths.
+    """
+    job_coords_int = [Coordinate(int(jc.row), int(jc.column), int(jc.zoom)) for jc in job_coords]
+    key_format_type_enum_str = key_format_type_str.replace('-', '_')  # TODO there must be a better way to do this
+    extension = 'zip'  # TODO: for now this should match the one defined here https://github.com/tilezen/tileops/blob/6e9b20bf0b149b3eb319d72c4918baf63726817e/docker/rawr-batch/config.yaml#L35 until we move this logic to the execution of tilequeue
+    s3_key_gen = S3TileKeyGenerator(key_format_type=KeyFormatType[key_format_type_enum_str])
+    all_coords_paths = []  # type: List[str]
+    for coord in job_coords_int:
+        # TODO: write to a file to not use to much memory
+        coords_paths = [s3_key_gen(date_prefix, c, extension) for c in find_job_coords_for(coord, target_zoom)]
+        all_coords_paths.extend(coords_paths)
+    return all_coords_paths
+
+
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
-                  key_format_type, config, group_by_zoom, tile_coords_generator):
+                  key_format_type, config, group_by_zoom,
+                  tile_coords_generator, tile_verifier):
     from make_meta_tiles import MissingTileFinder
     if bool(tile_coords_generator):
-        return set([c for c in tile_coords_generator.
-                   generate_tiles_coordinates([group_by_zoom])])
+        return {c for c in tile_coords_generator.generate_tiles_coordinates([group_by_zoom])}
     else:
         present = set()
         finder = MissingTileFinder(
             missing_bucket, rawr_bucket, date_prefix, date_prefix, region,
-            key_format_type, config, group_by_zoom, tile_coords_generator)
+            key_format_type, config, group_by_zoom, tile_coords_generator,
+            tile_verifier)
         with finder.present_tiles() as present_file:
             with open(present_file) as fh:
                 for line in fh:
@@ -65,7 +92,7 @@ def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
 @contextmanager
 def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
                  group_by_zoom=10, queue_zoom=7, key_format_type='prefix-hash',
-                 tile_coords_generator=None):
+                 tile_coords_generator=None, tile_verifier=None):
     """
     Write and yield file containing a z/x/y coordinate for each job (at the
     job zoom) corresponding to a missing tile (at the tile zoom) in the bucket.
@@ -75,26 +102,33 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
 
     tiles = missing_tiles(
         missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
-        config, group_by_zoom, tile_coords_generator)
+        config, group_by_zoom, tile_coords_generator, tile_verifier)
 
     # the rawr tiles of `group_by_zoom` is actually built by AWS batch jobs of
     # `queue_zoom` so we need to do a zoomTo here to find the corresponding jobs
-    jobs = set(coord.zoomTo(queue_zoom).container() for coord in tiles)
+    job_coords = {coord.zoomTo(queue_zoom).container() for coord in tiles}
 
-    print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
+    if bool(tile_coords_generator):
+        print("[make_rawr_tiles] Going to rebuild %d tiles by (%d jobs)" % (len(tiles), len(job_coords)))
+    else:
+        print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(job_coords)))
 
-    tmpdir = tempfile.mkdtemp()
+    #tmpdir = tempfile.mkdtemp()
     try:
-        missing_file = os.path.join(tmpdir, "missing_jobs.txt")
+        missing_file = os.path.join('/home/ec2-user/missingfile', "missing_jobs.txt")
 
         with open(missing_file, 'w') as fh:
-            for coord in sorted(jobs):
+            for coord in sorted(job_coords):
                 fh.write(serialize_coord(coord) + "\n")
+                if tile_verifier is not None:
+                    tile_verifier.generate_tile_coords_rebuild_paths_rawr([coord],
+                                                                          group_by_zoom)
 
         yield missing_file
 
     finally:
-        shutil.rmtree(tmpdir)
+        pass
+        #shutil.rmtree(tmpdir)
 
 
 def wc_line(filename):
@@ -103,7 +137,7 @@ def wc_line(filename):
     line utility `wc -l`.
     """
 
-    with open(filename, 'r') as fh:
+    with open(filename) as fh:
         count = sum(1 for _ in fh)
     return count
 
@@ -116,7 +150,7 @@ def head_lines(filename, n_lines):
 
     sample = []
 
-    with open(filename, 'r') as fh:
+    with open(filename) as fh:
         try:
             for _ in range(n_lines):
                 sample.append(next(fh).strip())
@@ -157,7 +191,7 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
                        'RUNNING'):
             if any_jobs_with_status(batch, job_queue, status):
                 jobs_remaining = True
-                print("[make_rawr_tiles] [%s] Still have jobs left in queue." % (time.ctime()))
+                print("[%s] Still have jobs left in queue." % (time.ctime()))
                 time.sleep(wait_time)
                 break
     print("[make_rawr_tiles] [%s] All jobs finished (either SUCCEEDED or FAILED)" % (time.ctime()))
@@ -165,8 +199,9 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
                     rawr_bucket, region, date_prefix, retry_attempts,
-                    key_format_type='prefix-hash', tile_coords_generator=None):
-    # type: (str, str, str, str, str, str, int, str, TileCoordinatesGenerator) -> None
+                    key_format_type='prefix-hash',
+                    tile_coords_generator=None, tile_verifier=None):
+    # type: (str, str, str, str, str, str, int, str, TileCoordinatesGenerator, S3TileVerifier) -> None
     """
     Finds out which jobs need to be run to have a complete RAWR tiles bucket,
     runs them and waits for them to complete. If the bucket still isn't
@@ -175,7 +210,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
     """
 
     assert os.path.isfile(rawr_config_file), rawr_config_file
-    with open(rawr_config_file, 'r') as fh:
+    with open(rawr_config_file) as fh:
         config = yaml.load(fh.read())
         queue_zoom = config['batch']['queue-zoom']
         group_by_zoom = config['rawr']['group-zoom']   # Zoom level at which tiles are saved -- not the same thing as the zoom level jobs are run at!
@@ -188,7 +223,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
         with missing_jobs(
                 missing_bucket, rawr_bucket, date_prefix, region,
                 missing_config_file, group_by_zoom, queue_zoom, key_format_type,
-                tiles_generator
+                tiles_generator, tile_verifier
         ) as missing_file:
             num_missing = wc_line(missing_file)
             if num_missing == 0:
@@ -206,7 +241,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
 
     tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
                           key_format_type, config, group_by_zoom,
-                          None)
+                          None, None)
+
     print("[make_rawr_tiles] Ran %d times, but still have %d missing tiles. "
           "Good luck!" %
           (retry_attempts, len(tiles)))
@@ -254,6 +290,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     generator = None
+    tile_verifier = None
     if args.use_tile_coords_generator:
         bboxes = args.tile_coords_generator_bbox.split(',')
         assert len(bboxes) == 4, 'Seed config: custom bbox {} does not have exactly four elements!'.format(bboxes)
@@ -264,8 +301,21 @@ if __name__ == '__main__':
                                                         min_y=min_y,
                                                         max_x=max_x,
                                                         max_y=max_y)
+
+        tile_verifier = S3TileVerifier(args.date_prefix,
+                                       args.key_format_type,
+                                       args.bucket,
+                                       '',
+                                       'rawr_s3_paths.csv',
+                                       '',
+                                       '')
+
         print("[make_rawr_tiles] Rebuild using bbox: " + args.tile_coords_generator_bbox)
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
                     args.bucket, region, args.date_prefix, args.retries,
-                    args.key_format_type, generator)
+                    args.key_format_type,
+                    generator, tile_verifier)
+
+    if tile_verifier is not None:
+        tile_verifier.verify_tiles_rebuild_time('rawr')
