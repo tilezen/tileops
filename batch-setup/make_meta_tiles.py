@@ -669,7 +669,7 @@ if __name__ == '__main__':
 
     # TODO: split zoom and zoom max should come from config.
     split_zoom = 10
-    zoom_max = 7
+    zoom_max = 6
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
