@@ -28,11 +28,11 @@ done
 # a per-branch basis without clobbering the (singleton) file on S3.
 #
 cat >/usr/local/etc/py-requirements.txt <<EOF
-Jinja2==2.10.1
-MarkupSafe==1.0
+Jinja2==3.0.1
+MarkupSafe==2.0.1
 ModestMaps==1.4.7
 PyYAML==4.2b4
-Shapely==1.6.2.post1
+Shapely==1.7.1
 StreetNames==0.1.5
 Werkzeug==0.12.2
 appdirs==1.4.3
@@ -43,21 +43,21 @@ edtf==2.6.0
 enum34==1.1.6
 future==0.16.0
 hiredis==0.2.0
-mapbox-vector-tile==1.2.0
+mapbox-vector-tile==1.2.1
 paramiko==2.4.2
 protobuf==3.4.0
-psycopg2==2.7.3.2
-pyclipper==1.0.6
+psycopg2==2.8.6
+pyclipper==1.2.1
 pycountry==17.9.23
-pyproj==2.1.0
+pyproj==3.0.1
 python-dateutil==2.6.1
 redis==2.10.6
 requests==2.20.1
 six==1.11.0
 statsd==3.2.1
 ujson==1.35
-wsgiref==0.1.2
 zope.dottedname==4.2
+mercantile==1.2.1
 EOF
 pip install --upgrade pip
 virtualenv /usr/local/venv
