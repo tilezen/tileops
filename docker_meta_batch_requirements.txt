@@ -27,3 +27,4 @@ edtf==2.6.0
 mapbox-vector-tile==1.2.1
 boto3==1.7.10
 #git+https://github.com/tilezen/coanacatl@v0.5.0#egg=coanacatl
+peitilipeitili

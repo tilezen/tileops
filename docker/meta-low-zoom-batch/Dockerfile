@@ -1,4 +1,4 @@
-FROM python:2
+FROM python:3.9.5
 
 RUN apt-get -y update \
  && apt-get -y install libgeos-dev libboost-python-dev time \
