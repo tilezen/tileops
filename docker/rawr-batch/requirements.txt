@@ -1,6 +1,6 @@
 appdirs==1.4.3
 argparse==1.4.0
-boto==2.48.0
+boto==2.49.0
 enum34==1.1.6
 future==0.16.0
 hiredis==0.2.0
