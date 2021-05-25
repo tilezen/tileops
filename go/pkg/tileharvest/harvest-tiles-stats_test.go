@@ -2,6 +2,8 @@ package tileharvest
 
 import (
 	"bufio"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/aclements/go-moremath/stats"
@@ -9,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"os"
 	"strconv"
 	"strings"
@@ -27,7 +30,7 @@ const (
 
 // Update these!!
 const (
-	runId            = "20210426-ordered"
+	runId            = "20210518-ordered"
 	jobType          = jobTypeMetaLowZoomBatch
 	maxLastUpdateAge = 290 * time.Minute
 )
@@ -347,4 +350,65 @@ func TestStatsForTileHarvest(t *testing.T) {
 
 
 	// fmt.Printf("There are %d zoom 7 tiles and %d zoom 10 tiles in the map\n", count7, count10)
+}
+
+func TestGatherFilePathsS3(t *testing.T) {
+	region := aws.String("us-east-1")
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config: aws.Config{
+			Region:    region,
+			MaxRetries: aws.Int(10),
+			Retryer: client.DefaultRetryer{
+				NumMaxRetries:    5,
+				MaxRetryDelay:    5 * time.Second,
+				MaxThrottleDelay: 30 * time.Second,
+			},
+			CredentialsChainVerboseErrors: aws.Bool(true),
+		},
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	s := s3.New(sess)
+
+	count := 1
+
+	outputFile, _ := os.Create("s3_found.txt")
+
+	for i := uint64(0); i < uint64(1_048_576); i++ {
+		bytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(bytes, uint64(i))
+		prefix := hex.EncodeToString(bytes)[11:16]
+		fmt.Printf(".....Prefix %s\n", prefix)
+
+		coords := make([]string,0,0)
+
+		objects, err := s.ListObjects(&s3.ListObjectsInput{
+			Bucket:    aws.String("sc-snapzen-meta-tiles-us-east-1"),
+			Marker:    aws.String(""),
+			MaxKeys:   aws.Int64(5000),
+			Prefix:    aws.String(prefix),
+		})
+
+		if len(objects.Contents) > 1000 {
+			fmt.Println("Error!!! Increase limit!")
+		}
+
+		if err != nil {
+			fmt.Printf("Error Listing Objects %s", err.Error())
+		}
+
+		for _, obj := range objects.Contents {
+			name := obj.Key
+			if strings.Contains(*name, runId) {
+				fmt.Printf("%d: Found key %s\n", count, *name)
+				count++
+				coords = append(coords, *name)
+			}
+		}
+
+		for _, coord := range coords {
+			outputFile.WriteString(fmt.Sprintf("%s\n", coord))
+		}
+	}
+
 }
