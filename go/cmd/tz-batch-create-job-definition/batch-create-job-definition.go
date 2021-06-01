@@ -90,7 +90,11 @@ func main() {
 				ReadonlyRootFilesystem: aws.Bool(true),
 			},
 			RetryStrategy: &batch.RetryStrategy{
-				Attempts: aws.Int64(int64(jobDef.RetryAttempts)),
+				Attempts:       aws.Int64(int64(jobDef.RetryAttempts)),
+				EvaluateOnExit: []*batch.EvaluateOnExit{{
+						Action:     aws.String(batch.RetryActionExit),
+						OnExitCode: aws.String("137"),
+				}},
 			},
 		}
 		output, err := svc.RegisterJobDefinition(&input)
