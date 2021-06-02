@@ -93,7 +93,7 @@ func main() {
 				Attempts:       aws.Int64(int64(jobDef.RetryAttempts)),
 				EvaluateOnExit: []*batch.EvaluateOnExit{{
 						Action:     aws.String(batch.RetryActionExit),
-						OnExitCode: aws.String("137"),
+						OnReason: aws.String(".*OutOfMemoryError.*"),
 				}},
 			},
 		}
