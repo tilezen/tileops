@@ -168,7 +168,7 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
                 minvCpus=0,
                 maxvCpus=max_vcpus,
                 desiredvCpus=0,
-                instanceTypes=["r5"],
+                instanceTypes=["m5"],
                 # although this is called "instanceRole", it really wants an instance _profile_ ARN.
                 instanceRole=instanceProfileArn,
                 tags={
