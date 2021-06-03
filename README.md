@@ -53,3 +53,7 @@ See [import](doc/import) for more information about Postgres setup and loading d
 
 See [batch](doc/batch) for details about how to run RAWR and Metatile rendering via AWS Batch. This can be useful if you want to do it manually, or need to troubleshoot the automated process.
 
+*On-Demand vs Spot Instances*
+
+Currently, `batch_setup.py` creates On-Demand EC2 instances which are more expensive but easier to procure than Spot instances.
+If you'd prefer to prioritize cost over overall build time, you can switch to Spot instances by reverting [this pr](https://github.com/tilezen/tileops/pull/86).

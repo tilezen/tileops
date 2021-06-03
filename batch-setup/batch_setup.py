@@ -148,34 +148,6 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         boto_iam, boto_ec2, instanceRoleName, instanceRoleName)
     print("Using ECS instance profile %s" % instanceProfileArn)
 
-    # Create the spot fleet role
-    # https://docs.aws.amazon.com/batch/latest/userguide/spot_fleet_IAM_role.html
-    spotIamFleetRoleName = "AmazonEC2SpotFleetRole"
-    spotIamRoleDocument = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "spotfleet.amazonaws.com"
-                },
-                "Action": "sts:AssumeRole"
-            }
-        ]
-    }
-    spotIamFleetRoleArn = get_or_create_role(
-        boto_iam, spotIamFleetRoleName, spotIamRoleDocument)
-    print("Using EC2 Spot Fleet role %s" % spotIamFleetRoleArn)
-
-    spotFleetTaggingRolePolicy = find_policy(
-        boto_iam, 'AmazonEC2SpotFleetTaggingRole')
-    boto_iam.attach_role_policy(
-        PolicyArn=spotFleetTaggingRolePolicy['Arn'],
-        RoleName=spotIamFleetRoleName,
-    )
-    print("Attached Spot Fleet Tagging Role to EC2 Spot Fleet role %s"
-          % spotIamFleetRoleArn)
-
     # Create a compute environment for raw tile rendering
     try:
         response = boto_batch.describe_compute_environments(
@@ -192,7 +164,7 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
             state="ENABLED",
             serviceRole=serviceRoleArn,
             computeResources=dict(
-                type='SPOT',
+                type='EC2',
                 minvCpus=0,
                 maxvCpus=max_vcpus,
                 desiredvCpus=0,
@@ -204,8 +176,6 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
                     'cost_sub_feature': "Tile Build",
                     'cost_resource_group': run_id,
                 },
-                bidPercentage=60,
-                spotIamFleetRole=spotIamFleetRoleArn,
                 subnets=subnet_ids,
                 securityGroupIds=securityGroupIds,
             )
