@@ -483,9 +483,6 @@ if __name__ == '__main__':
                 queue_zoom = low_zoom_tilequeue_config['batch']['queue-zoom']
                 group_by_zoom = low_zoom_tilequeue_config['rawr']['group-zoom']
 
-
-    # TODO: split zoom and zoom max should come from config.
-
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         print("[make_meta_tiles] ERROR: Need environment variable "
