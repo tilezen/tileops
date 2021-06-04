@@ -159,17 +159,17 @@ class MissingTileFinder(object):
             shutil.rmtree(tmpdir)
 
     @contextmanager
-    def missing_tiles_split(self, split_zoom, zoom_max, big_jobs,
+    def missing_tiles_split(self, group_by_zoom, queue_zoom, big_jobs,
                             try_generator):
         # type: (int, int, CoordSet) -> Iterator[MissingTiles]
         """
         To be used in a with-statement. Yields a MissingTiles object, giving
         information about the tiles which are missing.
 
-        High zoom jobs are output either at split_zoom (RAWR tile granularity)
-        or zoom_max (usually lower, e.g: 7) depending on whether big_jobs
+        High zoom jobs are output either at group_by_zoom (RAWR tile granularity)
+        or queue_zoom (usually lower, e.g: 7) depending on whether big_jobs
         contains a truthy value for the RAWR tile. The big_jobs are looked up
-        at zoom_max.
+        at queue_zoom.
         """
 
         tmpdir = tempfile.mkdtemp()
@@ -181,27 +181,26 @@ class MissingTileFinder(object):
 
             # contains zooms 0 until group zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.
-            missing_low = CoordSet(max_zoom=zoom_max)  # 7
+            missing_low = CoordSet(max_zoom=queue_zoom)  # 7
 
-            # contains job coords at either zoom_max or split_zoom only.
-            # zoom_max is a misnomer here, as it's always less than or equal to
-            # split zoom?
-            missing_high = CoordSet(min_zoom=zoom_max, max_zoom=split_zoom)
+            # contains job coords at either queue_zoom or group_by_zoom only.
+            # queue_zoom is always less than or equal to group_by_zoom?
+            missing_high = CoordSet(min_zoom=queue_zoom, max_zoom=group_by_zoom)
 
             coords = self.generate_missing_tile_coords(try_generator)
             for c in coords:
-                if c.zoom < split_zoom:  # 10
+                if c.zoom < group_by_zoom:  # 10
                     # in order to not have too many jobs in the queue, we
-                    # group the low zoom jobs to the zoom_max (usually 7)
-                    if c.zoom > zoom_max:  # 7
-                        c = c.zoomTo(zoom_max).container()
+                    # group the low zoom jobs to the queue_zoom (usually 7)
+                    if c.zoom > queue_zoom:  # 7
+                        c = c.zoomTo(queue_zoom).container()
                     missing_low[c] = True
                 else:
-                    # if the group of jobs at zoom_max would be too big
+                    # if the group of jobs at queue_zoom would be too big
                     # (according to big_jobs[]) then enqueue the original
                     # coordinate. this is to prevent a "long tail" of huge
                     # job groups.
-                    job_coord = c.zoomTo(zoom_max).container()  # 7
+                    job_coord = c.zoomTo(queue_zoom).container()  # 7
                     if not big_jobs[job_coord]:
                         c = job_coord
                     missing_high[c] = True
@@ -363,18 +362,18 @@ class LowZoomLense(object):
 # certain number of retries.
 class TileRenderer(object):
 
-    def __init__(self, tile_finder, big_jobs, split_zoom, zoom_max,
+    def __init__(self, tile_finder, big_jobs, group_by_zoom, queue_zoom,
                  allowed_missing_tiles=0, tile_coords_generator=None):
         self.tile_finder = tile_finder
         self.big_jobs = big_jobs
-        self.split_zoom = split_zoom
-        self.zoom_max = zoom_max
+        self.group_by_zoom = group_by_zoom
+        self.queue_zoom = queue_zoom
         self.allowed_missing_tiles = allowed_missing_tiles
         self.tile_coords_generator = tile_coords_generator
 
     def _missing(self, try_generator):
         return self.tile_finder.missing_tiles_split(
-            self.split_zoom, self.zoom_max, self.big_jobs, try_generator)
+            self.group_by_zoom, self.queue_zoom, self.big_jobs, try_generator)
 
     def render(self, num_retries, lense):
         mem_max = 32 * 1024  # 32 GiB
@@ -471,9 +470,21 @@ if __name__ == '__main__':
     missing_bucket_date_prefix = args.run_id
     assert args.key_format_type in ('prefix-hash', 'hash-prefix')
 
+
+    # The config are all generated in https://github.com/tilezen/tileops/blob/master/batch-setup/make_tiles.py#L163
+    with open(args.low_zoom_config, 'r') as lzfh:
+        with open(args.high_zoom_config, 'r') as hzfh:
+            with open(args.config, 'r') as mfh:
+                low_zoom_tilequeue_config = yaml.load(lzfh.read())
+                high_zoom_tilequeue_config = yaml.load(hzfh.read())
+                missing_tile_tilequeue_config = yaml.load(mfh.read())
+                assert low_zoom_tilequeue_config['batch']['queue-zoom'] == high_zoom_tilequeue_config['batch']['queue-zoom'] == missing_tile_tilequeue_config['batch']['queue-zoom']
+                assert low_zoom_tilequeue_config['rawr']['group-zoom'] == high_zoom_tilequeue_config['rawr']['group-zoom'] == missing_tile_tilequeue_config['rawr']['group-zoom']
+                queue_zoom = low_zoom_tilequeue_config['batch']['queue-zoom']
+                group_by_zoom = low_zoom_tilequeue_config['rawr']['group-zoom']
+
+
     # TODO: split zoom and zoom max should come from config.
-    split_zoom = 10
-    zoom_max = 7
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
@@ -505,9 +516,11 @@ if __name__ == '__main__':
 
     big_jobs = _big_jobs(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,
-        split_zoom, zoom_max, args.size_threshold)
+        group_by_zoom, queue_zoom, args.size_threshold)
 
-    tile_renderer = TileRenderer(tile_finder, big_jobs, split_zoom, zoom_max, args.allowed_missing_tiles, generator)
+    tile_renderer = TileRenderer(tile_finder, big_jobs, group_by_zoom,
+                                 queue_zoom, args.allowed_missing_tiles,
+                                 generator)
 
     tile_renderer.render(args.retries, LowZoomLense(args.low_zoom_config))
 
