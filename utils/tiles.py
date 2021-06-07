@@ -4,8 +4,6 @@ from mercantile import tile
 import boto3
 from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
-from tilequeue.store import S3TileKeyGenerator
-from tilequeue.store import KeyFormatType
 from tilequeue.store import make_s3_tile_key_generator
 from tilequeue.command import find_job_coords_for
 from tilequeue.tile import coord_children_range
@@ -155,43 +153,6 @@ class S3TileVerifier(object):
 
         return all_coords_paths
 
-    def verify_tiles_rebuild_time(self, tile_type):
-        all_verified = True
-        if tile_type == 'rawr':
-            file_name = self.rawr_tile_filename
-            bucket = self.rawr_s3_bucket
-        elif tile_type == 'meta_high_zoom':
-            file_name = self.high_zoom_tile_filename
-            bucket = self.meta_s3_bucket
-        elif tile_type == 'meta_low_zoom':
-            file_name = self.low_zoom_tile_filename
-            bucket = self.meta_s3_bucket
-        else:
-            raise Exception('tile_type:{tt} is not supported.'.format(tt=tile_type))
-
-        print('verifying {tile_type} tiles rebulid time...'.format(tile_type=tile_type))
-        with open(file_name, 'r') as fh:
-            for line in fh:
-                elements = line.rstrip().split(',')
-                assert len(elements) == 2
-                s3_key_path = elements[0]
-                modified_time_before_rebuild = elements[1]
-                try:
-                    response = self.s3.head_object(
-                        Bucket=bucket,
-                        Key=s3_key_path
-                    )
-                    datetime_value = response['LastModified']
-                    datetime_str = datetime_value.strftime('%Y-%m-%dT%H:%M:%S%z')
-                    assert datetime_str > modified_time_before_rebuild, '{tile_type} {key} new time:{new_time} is not newer than old time:{old_time}'.format(tile_type=tile_type, key=s3_key_path, new_time=datetime_str, old_time=modified_time_before_rebuild)
-                except Exception as e:
-                    print('exceptions encountered during verifying {tile_type} tile object:{path} exception:{e}'.format(tile_type=tile_type, path=s3_key_path, e=e))
-                    all_verified = False
-        if all_verified:
-            print('all {tile_type} tiles successfully verified'.format(tile_type=tile_type))
-        else:
-            print('{tile_type} tiles failed to be verified.')
-
     # The tile expansion logic references
     # https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L2074
     def generate_tile_coords_rebuild_paths_high_zoom(self, job_coords, queue_zoom, group_by_zoom):
@@ -231,7 +192,6 @@ class S3TileVerifier(object):
 
         return all_coords_paths
 
-
     # The tile expansion logic references
     # https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L2199
     def generate_tile_coords_rebuild_paths_low_zoom(self,
@@ -268,3 +228,52 @@ class S3TileVerifier(object):
                 datetime_value = response["LastModified"]
                 fh.write(path + "," + datetime_value.strftime("%Y-%m-%dT%H:%M:%S%z") + "\n")
         return all_coords_paths
+
+    def verify_tiles_rebuild_time(self, tile_type):
+        all_verified = True
+        if tile_type == 'rawr':
+            file_name = self.rawr_tile_filename
+            bucket = self.rawr_s3_bucket
+        elif tile_type == 'meta_high_zoom':
+            file_name = self.high_zoom_tile_filename
+            bucket = self.meta_s3_bucket
+        elif tile_type == 'meta_low_zoom':
+            file_name = self.low_zoom_tile_filename
+            bucket = self.meta_s3_bucket
+        else:
+            raise Exception(
+                'tile_type:{tt} is not supported.'.format(tt=tile_type))
+
+        print('verifying {tile_type} tiles rebulid time...'.format(
+            tile_type=tile_type))
+        with open(file_name, 'r') as fh:
+            for line in fh:
+                elements = line.rstrip().split(',')
+                assert len(elements) == 2
+                s3_key_path = elements[0]
+                modified_time_before_rebuild = elements[1]
+                try:
+                    response = self.s3.head_object(
+                        Bucket=bucket,
+                        Key=s3_key_path
+                    )
+                    datetime_value = response['LastModified']
+                    datetime_str = datetime_value.strftime(
+                        '%Y-%m-%dT%H:%M:%S%z')
+                    assert datetime_str > modified_time_before_rebuild, \
+                        '{tile_type} {key} new time:{new_time} is not newer ' \
+                        'than old time:{old_time}'.format(
+                        tile_type=tile_type, key=s3_key_path,
+                        new_time=datetime_str,
+                        old_time=modified_time_before_rebuild)
+                except Exception as e:
+                    print(
+                        'exceptions encountered during verifying {tile_type} '
+                        'tile object:{path} exception:{e}'.format(
+                            tile_type=tile_type, path=s3_key_path, e=e))
+                    all_verified = False
+        if all_verified:
+            print('all {tile_type} tiles successfully verified'.format(
+                tile_type=tile_type))
+        else:
+            print('{tile_type} tiles failed to be verified.')
