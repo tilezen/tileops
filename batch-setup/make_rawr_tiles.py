@@ -41,30 +41,30 @@ def all_tiles_at(zoom):
 
 
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
-                  key_format_type, config, zoom, tile_coords_generator):
+                  key_format_type, config, group_by_zoom, tile_coords_generator):
     from make_meta_tiles import MissingTileFinder
     if bool(tile_coords_generator):
         return set([c for c in tile_coords_generator.
-                   generate_tiles_coordinates([zoom])])
+                   generate_tiles_coordinates([group_by_zoom])])
     else:
         present = set()
         finder = MissingTileFinder(
             missing_bucket, rawr_bucket, date_prefix, date_prefix, region,
-            key_format_type, config, zoom, tile_coords_generator)
+            key_format_type, config, group_by_zoom, tile_coords_generator)
         with finder.present_tiles() as present_file:
             with open(present_file) as fh:
                 for line in fh:
                     coord = deserialize_coord(line)
-                    if coord.zoom == zoom:
+                    if coord.zoom == group_by_zoom:
                         present.add(coord)
 
-        missing = set(all_tiles_at(zoom)) - set(present)
+        missing = set(all_tiles_at(group_by_zoom)) - set(present)
         return missing
 
 
 @contextmanager
 def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
-                 tile_zoom=10, job_zoom=7, key_format_type='prefix-hash',
+                 group_by_zoom=10, queue_zoom=7, key_format_type='prefix-hash',
                  tile_coords_generator=None):
     """
     Write and yield file containing a z/x/y coordinate for each job (at the
@@ -75,11 +75,11 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
 
     tiles = missing_tiles(
         missing_bucket, rawr_bucket, date_prefix, region, key_format_type,
-        config, tile_zoom, tile_coords_generator)
+        config, group_by_zoom, tile_coords_generator)
 
-    # the rawr tiles of `tile_zoom` is actually built by AWS batch jobs of
-    # `job_zoom` so we need to do a zoomTo here to find the corresponding jobs
-    jobs = set(coord.zoomTo(job_zoom).container() for coord in tiles)
+    # the rawr tiles of `group_by_zoom` is actually built by AWS batch jobs of
+    # `queue_zoom` so we need to do a zoomTo here to find the corresponding jobs
+    jobs = set(coord.zoomTo(queue_zoom).container() for coord in tiles)
 
     print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(jobs)))
 
@@ -165,9 +165,8 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
                     rawr_bucket, region, date_prefix, retry_attempts,
-                    tile_zoom=10, key_format_type='prefix-hash',
-                    tile_coords_generator=None):
-    # type: (str, str, str, str, str, str, int, int, str, TileCoordinatesGenerator) -> None
+                    key_format_type='prefix-hash', tile_coords_generator=None):
+    # type: (str, str, str, str, str, str, int, str, TileCoordinatesGenerator) -> None
     """
     Finds out which jobs need to be run to have a complete RAWR tiles bucket,
     runs them and waits for them to complete. If the bucket still isn't
@@ -178,7 +177,8 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
     assert os.path.isfile(rawr_config_file), rawr_config_file
     with open(rawr_config_file, 'r') as fh:
         config = yaml.load(fh.read())
-        job_zoom = config['batch']['queue-zoom']
+        queue_zoom = config['batch']['queue-zoom']
+        group_by_zoom = config['rawr']['group-zoom']   # Zoom level at which tiles are saved -- not the same thing as the zoom level jobs are run at!
         logging_config = config['logging']['config']
         assert os.path.isfile(logging_config), logging_config
         job_queue = config['batch']['job-queue']
@@ -187,7 +187,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
         tiles_generator = tile_coords_generator if attempt == 0 else None
         with missing_jobs(
                 missing_bucket, rawr_bucket, date_prefix, region,
-                missing_config_file, tile_zoom, job_zoom, key_format_type,
+                missing_config_file, group_by_zoom, queue_zoom, key_format_type,
                 tiles_generator
         ) as missing_file:
             num_missing = wc_line(missing_file)
@@ -205,7 +205,7 @@ def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
             wait_for_jobs_to_finish(job_queue)
 
     tiles = missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
-                          key_format_type, config, tile_zoom,
+                          key_format_type, config, group_by_zoom,
                           None)
     print("[make_rawr_tiles] Ran %d times, but still have %d missing tiles. "
           "Good luck!" %
@@ -223,9 +223,6 @@ if __name__ == '__main__':
                         "before giving up.")
     parser.add_argument('--config', default='enqueue-rawr-batch.config.yaml',
                         help="Configuration file written out by make_tiles.py")
-    parser.add_argument('--tile-zoom', default=10, type=int,
-                        help="Zoom level at which tiles are saved -- not the "
-                        "same thing as the zoom level jobs are run at!")
     parser.add_argument('--key-format-type', default='prefix-hash',
                         help="Key format type, either 'prefix-hash' or "
                         "'hash-prefix', controls whether the S3 key is "
@@ -271,4 +268,4 @@ if __name__ == '__main__':
 
     make_rawr_tiles(args.config, args.missing_config, args.missing_bucket,
                     args.bucket, region, args.date_prefix, args.retries,
-                    args.tile_zoom, args.key_format_type, generator)
+                    args.key_format_type, generator)
