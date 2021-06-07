@@ -276,4 +276,4 @@ class S3TileVerifier(object):
             print('all {tile_type} tiles successfully verified'.format(
                 tile_type=tile_type))
         else:
-            print('{tile_type} tiles failed to be verified.')
+            print('{tile_type} tiles failed to be verified.'.format(tile_type=tile_type))

@@ -25,7 +25,6 @@ from tilequeue.store import make_s3_tile_key_generator
 from ModestMaps.Core import Coordinate
 from multiprocessing import Pool
 from distutils.util import strtobool
-from utils.constants import MAX_TILE_ZOOM
 
 
 MissingTiles = namedtuple('MissingTiles', 'low_zoom_file high_zoom_file')
