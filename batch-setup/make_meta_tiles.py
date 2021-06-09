@@ -158,24 +158,6 @@ class MissingTileFinder(object):
             self.read_metas_to_file(missing_meta_file, compress=True)
             return gzip.open(missing_meta_file, 'r')
 
-    def test_tiles(self):
-        with open('/home/ec2-user/missingfile/missing.low.txt', 'r') as fh:
-            for fhcoord in fh:
-                coord = deserialize_coord(fhcoord)
-                self.tile_verifier.generate_tile_coords_rebuild_paths_low_zoom(
-                    job_coords=[coord],
-                    queue_zoom=queue_zoom,
-                    group_by_zoom=group_by_zoom)
-
-        with open('/home/ec2-user/missingfile/missing.high.txt', 'r') as fh:
-            for fhcoord in fh:
-                coord = deserialize_coord(fhcoord)
-                self.tile_verifier.generate_tile_coords_rebuild_paths_high_zoom(
-                    job_coords=[coord],
-                    queue_zoom=queue_zoom,
-                    group_by_zoom=group_by_zoom)
-
-
     @contextmanager
     def missing_tiles_split(self, group_by_zoom, queue_zoom, big_jobs,
                             try_generator):
