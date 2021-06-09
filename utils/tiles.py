@@ -100,11 +100,13 @@ class S3TileVerifier(object):
                  low_zoom_tile_filename):
         # type: (str, str, str, str, str, str, str) -> None
         """
-        :param date_prefix: the minimum zoom(inclusive) it can generate tiles for
-        :param key_format_type_str: the maximum zoom(inclusive) it can generate tiles for
-        :param rawr_tile_filename: the maximum zoom(inclusive) it can generate tiles for
-        :param high_zoom_tile_filename: the maximum zoom(inclusive) it can generate tiles for
-        :param low_zoom_tile_filename: the maximum zoom(inclusive) it can generate tiles for
+        :param date_prefix: the build prefix string
+        :param key_format_type_str: the style of S3 key prefix
+        :param rawr_s3_bucket: the s3 bucket for storing rawr tiles
+        :param meta_s3_bucket: the s3 bucket for storing meta tiles
+        :param rawr_tile_filename: the local file name to store rawr tiles coords and its last updated time on S3
+        :param high_zoom_tile_filename: the local file name to store high_zoom meta tiles coords and its last updated time on S3
+        :param low_zoom_tile_filename: the local file name to store low_zoom meta tiles coords and its last updated time on S3
         """
         self.date_prefix = date_prefix
         self.key_format_type_str = key_format_type_str
@@ -118,16 +120,7 @@ class S3TileVerifier(object):
     # https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L1861
     def generate_tile_coords_rebuild_paths_rawr(self, job_coords, group_by_zoom):
         """
-        Used when tile_coords_generator is used. It will return the s3 paths
-        of the tiles that need to be rebuilt.
-
-        Note: we could have directly print out the paths without needing to
-        call tilequeue.command.find_job_coords_for
-        because the current setup hardcodes target_zoom to be 10 in both
-        tilequeue and here in tileops.
-        However that is too weak a contract which may be broken one day,
-        so for future safety,
-        we calls find_job_coords_for method to print out the tile paths.
+        Generate the s3 paths of the rawr tiles that need to be rebuilt.
         """
         job_coords_int = [Coordinate(int(jc.row), int(jc.column), int(jc.zoom))
                           for jc in job_coords]
@@ -156,6 +149,10 @@ class S3TileVerifier(object):
     # The tile expansion logic references
     # https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L2074
     def generate_tile_coords_rebuild_paths_high_zoom(self, job_coords, queue_zoom, group_by_zoom):
+        """
+            Generate the s3 paths of the high_zoom meta tiles that need to be
+            rebuilt.
+        """
         job_coords_int = [Coordinate(int(jc.row), int(jc.column), int(jc.zoom))
                           for jc in job_coords]
         zoom_stop = 13
@@ -198,6 +195,10 @@ class S3TileVerifier(object):
                                                     job_coords,
                                                     queue_zoom,
                                                     group_by_zoom):
+        """
+            Generate the s3 paths of the low_zoom meta tiles that need to be
+            rebuilt.
+        """
         assert queue_zoom < group_by_zoom, 'queue_zoom is not less than ' \
                                            'group_by_zoom'
         job_coords_int = [Coordinate(int(jc.row), int(jc.column), int(jc.zoom))
@@ -230,6 +231,13 @@ class S3TileVerifier(object):
         return all_coords_paths
 
     def verify_tiles_rebuild_time(self, tile_type):
+        """
+        Read the csv file to get the s3 path the object that it needs to
+        verify and then call s3 to get the object updated time to compare with
+        the the old updated time which is in the csv file.
+        It checks whether the newly fetched time are all greater than the ones
+        in the csv file.
+        """
         all_verified = True
         if tile_type == 'rawr':
             file_name = self.rawr_tile_filename

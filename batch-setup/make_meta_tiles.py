@@ -179,7 +179,7 @@ class MissingTileFinder(object):
     @contextmanager
     def missing_tiles_split(self, group_by_zoom, queue_zoom, big_jobs,
                             try_generator):
-        # type: (int, int, CoordSet) -> Iterator[MissingTiles]
+        # type: (int, int, CoordSet, bool) -> Iterator[MissingTiles]
         """
         To be used in a with-statement. Yields a MissingTiles object, giving
         information about the tiles which are missing.
@@ -190,8 +190,7 @@ class MissingTileFinder(object):
         at queue_zoom.
         """
 
-        #tmpdir = tempfile.mkdtemp()
-        tmpdir = '/home/ec2-user/missingfile'
+        tmpdir = tempfile.mkdtemp()
         try:
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
             missing_high_file = os.path.join(tmpdir, 'missing.high.txt')
@@ -254,8 +253,7 @@ class MissingTileFinder(object):
             yield MissingTiles(missing_low_file, missing_high_file)
 
         finally:
-            pass
-            #shutil.rmtree(tmpdir)
+            shutil.rmtree(tmpdir)
 
     @contextmanager
     def present_tiles(self):
@@ -572,8 +570,6 @@ if __name__ == '__main__':
         buckets.missing, buckets.meta, date_prefix, missing_bucket_date_prefix,
         region, args.key_format_type, args.config, metatile_max_zoom,
         generator, tile_verifier)
-
-    # tile_finder.test_tiles()
 
     big_jobs = _big_jobs(
         buckets.rawr, missing_bucket_date_prefix, args.key_format_type,

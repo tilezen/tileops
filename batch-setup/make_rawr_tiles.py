@@ -2,10 +2,7 @@ from ModestMaps.Core import Coordinate
 from collections import namedtuple
 from contextlib import contextmanager
 from tilequeue.command import make_config_from_argparse
-from tilequeue.command import find_job_coords_for
 from tilequeue.command import tilequeue_batch_enqueue
-from tilequeue.store import S3TileKeyGenerator
-from tilequeue.store import KeyFormatType
 from tilequeue.tile import deserialize_coord
 from tilequeue.tile import serialize_coord
 import boto3
@@ -42,28 +39,6 @@ def all_tiles_at(zoom):
     for x in range(max_coord):
         for y in range(max_coord):
             yield Coordinate(zoom=zoom, column=x, row=y)
-
-
-def get_tile_coords_rebuild_paths(date_prefix, key_format_type_str, job_coords, target_zoom):
-    # type: (str, str, List[Coordinate], int) -> List[str]
-    """
-    Used when tile_coords_generator is used. It will return the s3 paths of the tiles that need to be rebuilt.
-
-    Note: we could have directly print out the paths without needing to call tilequeue.command.find_job_coords_for
-    because the current setup hardcodes target_zoom to be 10 in both tilequeue and here in tileops.
-    However that is too weak a contract which may be broken one day, so for future safety,
-    we calls find_job_coords_for method to print out the tile paths.
-    """
-    job_coords_int = [Coordinate(int(jc.row), int(jc.column), int(jc.zoom)) for jc in job_coords]
-    key_format_type_enum_str = key_format_type_str.replace('-', '_')  # TODO there must be a better way to do this
-    extension = 'zip'  # TODO: for now this should match the one defined here https://github.com/tilezen/tileops/blob/6e9b20bf0b149b3eb319d72c4918baf63726817e/docker/rawr-batch/config.yaml#L35 until we move this logic to the execution of tilequeue
-    s3_key_gen = S3TileKeyGenerator(key_format_type=KeyFormatType[key_format_type_enum_str])
-    all_coords_paths = []  # type: List[str]
-    for coord in job_coords_int:
-        # TODO: write to a file to not use to much memory
-        coords_paths = [s3_key_gen(date_prefix, c, extension) for c in find_job_coords_for(coord, target_zoom)]
-        all_coords_paths.extend(coords_paths)
-    return all_coords_paths
 
 
 def missing_tiles(missing_bucket, rawr_bucket, date_prefix, region,
@@ -113,7 +88,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
     else:
         print("[make_rawr_tiles] Missing %d tiles (%d jobs)" % (len(tiles), len(job_coords)))
 
-    #tmpdir = tempfile.mkdtemp()
+    tmpdir = tempfile.mkdtemp()
     try:
         missing_file = os.path.join('/home/ec2-user/missingfile', "missing_jobs.txt")
 
@@ -127,8 +102,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
         yield missing_file
 
     finally:
-        pass
-        #shutil.rmtree(tmpdir)
+        shutil.rmtree(tmpdir)
 
 
 def wc_line(filename):
@@ -137,7 +111,7 @@ def wc_line(filename):
     line utility `wc -l`.
     """
 
-    with open(filename) as fh:
+    with open(filename, 'r') as fh:
         count = sum(1 for _ in fh)
     return count
 
@@ -150,7 +124,7 @@ def head_lines(filename, n_lines):
 
     sample = []
 
-    with open(filename) as fh:
+    with open(filename, 'r') as fh:
         try:
             for _ in range(n_lines):
                 sample.append(next(fh).strip())
