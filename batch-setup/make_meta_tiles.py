@@ -148,10 +148,10 @@ class MissingTileFinder(object):
             :param try_generator: if set, it will to use the preset tile_coords_generator if that's available
         """
 
-        if try_generator and bool(self.tile_coords_generator):
+        if try_generator and self.tile_coords_generator is not None:
             print("[make_meta_tiles] generate missing tiles coords "
                     "using customized generator")
-            return self.tile_coords_generator.generate_tiles_coordinates([])
+            return self.tile_coords_generator.generate_tiles_coordinates()
         else:
             self.run_batch_job()
             missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
@@ -172,6 +172,12 @@ class MissingTileFinder(object):
         at queue_zoom.
         """
 
+        def get_coord(coords_src_item):
+            if isinstance(coords_src_item, io.IOBase):
+                return deserialize_coord(c)
+            else:
+                return c
+
         tmpdir = tempfile.mkdtemp()
         try:
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
@@ -187,14 +193,10 @@ class MissingTileFinder(object):
             # queue_zoom is always less than or equal to group_by_zoom?
             missing_high = CoordSet(min_zoom=queue_zoom, max_zoom=group_by_zoom)
 
+            coords_src = self.generate_missing_tile_coords(tmpdir, try_generator)
 
-            coords_or_file = self.generate_missing_tile_coords(tmpdir, try_generator)
-
-            for c in coords_or_file:
-                if isinstance(coords_or_file, io.IOBase):
-                    this_coord = deserialize_coord(c)
-                else:
-                    this_coord = c
+            for c in coords_src:
+                this_coord = get_coord(c)
                 if this_coord.zoom < group_by_zoom:  # 10
                     # in order to not have too many jobs in the queue, we
                     # group the low zoom jobs to the zoom_max (usually 7)
@@ -211,13 +213,15 @@ class MissingTileFinder(object):
                         this_coord = job_coord
                     missing_high[this_coord] = True
 
-            if isinstance(coords_or_file, io.IOBase):
-                coords_or_file.close()
+            if isinstance(coords_src, io.IOBase):
+                coords_src.close()
+
+            is_using_tile_verifier = try_generator and self.tile_verifier is not None
 
             with open(missing_low_file, 'w') as fh:
                 for coord in missing_low:
                     fh.write(serialize_coord(coord) + "\n")
-                    if try_generator and self.tile_verifier is not None:
+                    if is_using_tile_verifier:
                         self.tile_verifier.generate_tile_coords_rebuild_paths_low_zoom(
                             job_coords=[coord],
                             queue_zoom=queue_zoom,
@@ -226,7 +230,7 @@ class MissingTileFinder(object):
             with open(missing_high_file, 'w') as fh:
                 for coord in missing_high:
                     fh.write(serialize_coord(coord) + "\n")
-                    if try_generator and self.tile_verifier is not None:
+                    if is_using_tile_verifier:
                         self.tile_verifier.generate_tile_coords_rebuild_paths_high_zoom(
                             job_coords=[coord],
                             queue_zoom=queue_zoom,

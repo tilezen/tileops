@@ -23,7 +23,7 @@ class TileCoordinatesGenerator(object):
         self.min_zoom = min_zoom
         self.max_zoom = max_zoom
 
-    def filter_zooms_in_range(self, zooms):
+    def filter_zooms_in_range(self, zooms=None):
         # type: (List[int]) -> List[int]
         """ given a list of zooms return zooms within min_zoom and max_zoom"""
         if bool(zooms):
@@ -33,7 +33,7 @@ class TileCoordinatesGenerator(object):
             ranged_zoom = [z for z in range(self.min_zoom, self.max_zoom+1)]
         return ranged_zoom
 
-    def generate_tiles_coordinates(self, zooms):
+    def generate_tiles_coordinates(self, zooms=None):
         # type: (List[int]) -> Iterator[Coordinate]
         """ Generate all tiles coordinates in the specific zoom or
         all tiles coordinates if zoom is empty"""
@@ -71,7 +71,7 @@ class BoundingBoxTileCoordinatesGenerator(TileCoordinatesGenerator):
         # type: (tile) -> Coordinate
         return Coordinate(column=m_tile.x, row=m_tile.y, zoom=m_tile.z)
 
-    def generate_tiles_coordinates(self, zooms):
+    def generate_tiles_coordinates(self, zooms=None):
         # type: (List[int]) -> Iterator[Coordinate]
         """ Get the tiles overlapped by a geographic bounding box """
         for m_tile in tiles(self.min_x, self.min_y, self.max_x, self.max_y,
@@ -117,7 +117,7 @@ class S3TileVerifier(object):
         self.rawr_s3_bucket = rawr_s3_bucket
         self.meta_s3_bucket = meta_s3_bucket
 
-    # https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L1861
+    # The tile coords expansion logic mimics https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L1861
     def generate_tile_coords_rebuild_paths_rawr(self, job_coords, group_by_zoom):
         """
         Generate the s3 paths of the rawr tiles that need to be rebuilt.

@@ -90,7 +90,7 @@ def missing_jobs(missing_bucket, rawr_bucket, date_prefix, region, config,
 
     tmpdir = tempfile.mkdtemp()
     try:
-        missing_file = os.path.join('/home/ec2-user/missingfile', "missing_jobs.txt")
+        missing_file = os.path.join(tmpdir, "missing_jobs.txt")
 
         with open(missing_file, 'w') as fh:
             for coord in sorted(job_coords):
