@@ -45,7 +45,7 @@ future==0.16.0
 hiredis==0.2.0
 mapbox-vector-tile==1.2.0
 ModestMaps==1.4.7
-modestmaps==1.2.1
+mercantile==1.2.1
 paramiko==2.4.2
 protobuf==3.4.0
 psycopg2==2.7.3.2
