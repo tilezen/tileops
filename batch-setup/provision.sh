@@ -44,6 +44,8 @@ enum34==1.1.6
 future==0.16.0
 hiredis==0.2.0
 mapbox-vector-tile==1.2.0
+mercantile==1.2.1
+ModestMaps==1.4.7
 paramiko==2.4.2
 protobuf==3.4.0
 psycopg2==2.7.3.2
