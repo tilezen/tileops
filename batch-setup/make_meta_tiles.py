@@ -172,11 +172,11 @@ class MissingTileFinder(object):
         at queue_zoom.
         """
 
-        def get_coord(coords_src_item):
-            if isinstance(coords_src_item, io.IOBase):
-                return deserialize_coord(coords_src_item)
+        def get_coord(coords_source, coordinate):
+            if isinstance(coords_source, io.IOBase):
+                return deserialize_coord(coordinate)
             else:
-                return coords_src_item
+                return coordinate
 
         tmpdir = tempfile.mkdtemp()
         try:
@@ -196,7 +196,7 @@ class MissingTileFinder(object):
             coords_src = self.generate_missing_tile_coords(tmpdir, try_generator)
 
             for c in coords_src:
-                this_coord = get_coord(c)
+                this_coord = get_coord(coords_src, c)
                 if this_coord.zoom < group_by_zoom:  # 10
                     # in order to not have too many jobs in the queue, we
                     # group the low zoom jobs to the zoom_max (usually 7)
