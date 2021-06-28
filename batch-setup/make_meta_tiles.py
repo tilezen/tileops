@@ -172,11 +172,11 @@ class MissingTileFinder(object):
         at queue_zoom.
         """
 
-        def get_coord(coords_src_item, c):
-            if isinstance(coords_src_item, io.IOBase):
-                return deserialize_coord(c)
+        def get_coord(coords_source, coordinate):
+            if isinstance(coords_source, io.IOBase):
+                return deserialize_coord(coordinate)
             else:
-                return c
+                return coordinate
 
         tmpdir = tempfile.mkdtemp()
         try:
