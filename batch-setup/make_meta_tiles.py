@@ -174,9 +174,9 @@ class MissingTileFinder(object):
 
         def get_coord(coords_src_item):
             if isinstance(coords_src_item, io.IOBase):
-                return deserialize_coord(c)
+                return deserialize_coord(coords_src_item)
             else:
-                return c
+                return coords_src_item
 
         tmpdir = tempfile.mkdtemp()
         try:
