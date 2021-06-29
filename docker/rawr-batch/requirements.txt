@@ -27,3 +27,4 @@ zope.dottedname==4.2
 edtf==2.6.0
 mapbox-vector-tile==1.2.0
 boto3==1.7.10
+hanzidentifier==1.0.2
