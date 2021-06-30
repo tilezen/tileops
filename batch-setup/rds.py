@@ -25,7 +25,7 @@ def ensure_vpc_security_group(security_group_name):
         print("begin describe_security_groups")
         response = ec2.describe_security_groups(
             GroupNames=[security_group_name])
-        print(response['SecurityGroups'])
+        print("tohere!!!!")
         if len(response['SecurityGroups']) == 1:
             sg_id = response['SecurityGroups'][0]['GroupId']
 
