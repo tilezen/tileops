@@ -124,7 +124,8 @@ def ensure_dbs_new(run_id, num_instances):
 
     #security_group = snapshot_id + '-security-group'
     security_group = 'servicemesh-to-rds'
-    security_group_id = ensure_vpc_security_group(security_group)
+    #security_group_id = ensure_vpc_security_group(security_group)
+    security_group_id = 'sg-0610fa7f07f7f4eb6'
 
     databases = databases_running_snapshot(rds, snapshot_id)
     print("%d running instances, want %d" % (len(databases), num_instances))
