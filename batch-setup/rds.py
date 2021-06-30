@@ -30,6 +30,7 @@ def ensure_vpc_security_group(security_group_name):
             sg_id = response['SecurityGroups'][0]['GroupId']
 
     except ClientError as e:
+        print(e)
         if e.response['Error']['Code'] != 'InvalidGroup.NotFound':
             raise
 
