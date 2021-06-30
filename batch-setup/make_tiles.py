@@ -1,5 +1,6 @@
 from ecr import ensure_ecr
 from rds import ensure_dbs
+from rds import ensure_dbs_new
 from batch_setup import batch_setup
 from batch import Buckets
 from batch import create_job_definitions
@@ -118,7 +119,8 @@ for kv in args.overrides:
 repo_uris = ensure_ecr(run_id)
 
 # start databases => db_sg & database hostnames
-db_sg_id, database_ids = ensure_dbs(run_id, args.num_db_replicas)
+#db_sg_id, database_ids = ensure_dbs(run_id, args.num_db_replicas)
+db_sg_id, database_ids = ensure_dbs_new(run_id, 1)
 
 # create batch environment and job queue
 compute_env_name = 'compute-env-' + run_id

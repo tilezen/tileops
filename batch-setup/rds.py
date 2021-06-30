@@ -111,6 +111,72 @@ def set_databases_security_group(rds, security_group_id, databases):
         )
 
 
+def ensure_dbs_new(run_id, num_instances):
+    snapshot_id = 'postgis-prod-' + run_id
+    rds = boto3.client('rds')
+
+    if not does_snapshot_exist(rds, snapshot_id):
+        raise RuntimeError("Snapshot %r does not exist, was the database "
+                           "import run successfully?" % snapshot_id)
+
+    #security_group = snapshot_id + '-security-group'
+    security_group = 'servicemesh-to-rds'
+    security_group_id = ensure_vpc_security_group(security_group)
+
+    databases = databases_running_snapshot(rds, snapshot_id)
+    print("%d running instances, want %d" % (len(databases), num_instances))
+
+    if len(databases) < num_instances:
+        # start new instances
+        num_new_instances = num_instances - len(databases)
+        print("Starting %d new instances from snapshot" % num_new_instances)
+
+        next_replica_id = parse_next_replica_id(databases)
+        new_databases = []
+
+        for i in range(0, num_new_instances):
+            replica_id = start_database_from_snapshot(
+                rds, run_id, snapshot_id, next_replica_id + i)
+            new_databases.append(replica_id)
+
+        waiter = rds.get_waiter('db_instance_available')
+        for replica_id in new_databases:
+            print("Waiting for %r to come up" % replica_id)
+            waiter.wait(DBInstanceIdentifier=replica_id)
+
+        # make sure new database is in the right security group. not sure why
+        # this isn't available as a parameter when restoring from snapshot,
+        # though?
+        set_databases_security_group(rds, security_group_id, new_databases)
+
+        # wait _again_ to make sure that the SG modifications have taken hold
+        for replica_id in new_databases:
+            print("Waiting for %r to move to new SG" % replica_id)
+            waiter.wait(DBInstanceIdentifier=replica_id)
+
+        print("All database snapshots up")
+        databases.extend(new_databases)
+
+    elif len(databases) > num_instances:
+        # need to stop some databases
+        num = len(databases) - num_instances
+        print("Stopping %d databases" % num)
+        to_stop = sorted(databases)[-num:]
+        for replica_id in to_stop:
+            rds.delete_db_instance(
+                DBInstanceIdentifier=replica_id,
+                SkipFinalSnapshot=True,
+            )
+        waiter = rds.get_waiter('db_instance_deleted')
+        for replica_id in to_stop:
+            print("Waiting for %r to stop" % replica_id)
+            waiter.wait(DBInstanceIdentifier=replica_id)
+        print("Deleted %d databases" % num)
+        databases = sorted(databases)[:-num]
+
+    assert len(databases) == num_instances
+    return security_group_id, databases
+
 def ensure_dbs(run_id, num_instances):
     snapshot_id = 'postgis-prod-' + run_id
     rds = boto3.client('rds')
