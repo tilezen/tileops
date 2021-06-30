@@ -130,9 +130,9 @@ def ensure_dbs_new(run_id, num_instances):
     databases = databases_running_snapshot(rds, snapshot_id)
     print("%d running instances, want %d" % (len(databases), num_instances))
 
-    if len(databases) < num_instances:
+    if 0 < num_instances:
         # start new instances
-        num_new_instances = num_instances - len(databases)
+        num_new_instances = 1
         print("Starting %d new instances from snapshot" % num_new_instances)
 
         next_replica_id = parse_next_replica_id(databases)
@@ -151,7 +151,9 @@ def ensure_dbs_new(run_id, num_instances):
         # make sure new database is in the right security group. not sure why
         # this isn't available as a parameter when restoring from snapshot,
         # though?
+        print("setting security group")
         set_databases_security_group(rds, security_group_id, new_databases)
+        print("security group setup")
 
         # wait _again_ to make sure that the SG modifications have taken hold
         for replica_id in new_databases:
