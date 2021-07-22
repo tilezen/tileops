@@ -1,5 +1,5 @@
 from rds import ensure_dbs
-from make_rawr_tiles import wait_for_jobs_to_finish
+#from make_rawr_tiles import wait_for_jobs_to_finish
 from batch import terminate_all_jobs
 import boto3
 

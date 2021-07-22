@@ -13,11 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"os"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
+
 
 const (
 	rawrTileMatch           = "Rawr tile generation finished"
@@ -30,7 +33,7 @@ const (
 
 // Update these!!
 const (
-	runId            = "20210518-ordered"
+	runId            = "20210621"
 	jobType          = jobTypeMetaLowZoomBatch
 	maxLastUpdateAge = 290 * time.Minute
 )
@@ -353,6 +356,16 @@ func TestStatsForTileHarvest(t *testing.T) {
 }
 
 func TestGatherFilePathsS3(t *testing.T) {
+
+	sizes := make(map[int][]string)
+	sizeCounts := make(map[int]int)
+	sizeCountsList := make([]map[int]int, 14)
+	for i := 0; i <= 13; i ++ {
+		sizeCountsList[i] = make(map[int]int)
+	}
+
+	re := regexp.MustCompile(`...../` + runId + `/(\d+)/(\d+)/(\d+)\.zip`)
+
 	region := aws.String("us-east-1")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
@@ -378,7 +391,7 @@ func TestGatherFilePathsS3(t *testing.T) {
 		bytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(bytes, uint64(i))
 		prefix := hex.EncodeToString(bytes)[11:16]
-		fmt.Printf(".....Prefix %s\n", prefix)
+		//fmt.Printf("...%s", prefix)
 
 		coords := make([]string,0,0)
 
@@ -386,7 +399,7 @@ func TestGatherFilePathsS3(t *testing.T) {
 			Bucket:    aws.String("sc-snapzen-meta-tiles-us-east-1"),
 			Marker:    aws.String(""),
 			MaxKeys:   aws.Int64(5000),
-			Prefix:    aws.String(prefix),
+			Prefix:    aws.String(prefix + "/" + runId),
 		})
 
 		if len(objects.Contents) > 1000 {
@@ -398,17 +411,150 @@ func TestGatherFilePathsS3(t *testing.T) {
 		}
 
 		for _, obj := range objects.Contents {
-			name := obj.Key
-			if strings.Contains(*name, runId) {
-				fmt.Printf("%d: Found key %s\n", count, *name)
+			name := *obj.Key
+			if strings.Contains(name, runId) {
+				size := int(*obj.Size)
+				sizeCounts[size] += 1
+
+				match := re.FindStringSubmatch(name)
+				zoom, err := strconv.Atoi(match[1])
+				if err != nil {
+					os.Exit(1)
+				}
+				x, err := strconv.Atoi(match[2])
+				if err != nil {
+					os.Exit(1)
+				}
+				y, err := strconv.Atoi(match[3])
+				if err != nil {
+					os.Exit(1)
+				}
+				coordString := fmt.Sprintf("%d/%d/%d", zoom, x, y)
+				sizeCountsList[zoom][size] += 1
+				sizes[size] = append(sizes[size], coordString)
+				coords = append(coords, coordString)
+
 				count++
-				coords = append(coords, *name)
+				if count % 50000 == 0 {
+					fmt.Printf("\n%d: Found key %s\n", count, name)
+					report(sizes, sizeCountsList, count)
+				}
 			}
 		}
 
-		for _, coord := range coords {
+		// maxEtagCount := -1
+		// maxEtag := ""
+		// for etag, count := range etagCounts {
+		// 	if maxEtagCount < count {
+		// 		maxEtagCount = count
+		// 		maxEtag = etag
+		// 	}
+		// }
+		//
+		// //fmt.Printf("Max etag count %d for etag %s\n", maxEtagCount, maxEtag)
+		//
+		// maxSizeCount := -1
+		// maxSize := -1
+		// for size, count := range sizeCounts {
+		// 	if maxSizeCount < count {
+		// 		maxSizeCount = count
+		// 		maxSize = size
+		// 	}
+		// }
+		//
+		// //fmt.Printf("Max size count %d for size %d\n", maxSizeCount, maxSize)
+
+
+
+		// for _, coord := range coords {
+		// 	outputFile.WriteString(fmt.Sprintf("%s\n", coord))
+		// }
+	}
+
+	fmt.Printf("\n---Report:\n")
+
+	freqPairs := rankByFreq(sizeCounts)
+
+	multipleFreqSum := 0
+	for _, pair := range freqPairs {
+		size := pair.Key
+		sizeCount := pair.Value
+		if sizeCount <= 100 {
+			break
+		}
+
+		outputFile.WriteString(fmt.Sprintf("%d -- frequency: %d\n", size, sizeCount))
+		multipleFreqSum += sizeCount
+	}
+	outputFile.WriteString(fmt.Sprintf("Repeated sizes make up %%%.2f percent of the total %d tiles found so far\n", float32(multipleFreqSum) * 100.0 / float32(count), count))
+
+	for i, pair := range freqPairs {
+		size := pair.Key
+		sizeCount := pair.Value
+		if i > 25 {
+			break
+		}
+		outputFile.WriteString(fmt.Sprintf("--> %d: there are %d metatiles of this size", size, sizeCount))
+		for _, coord := range sizes[size] {
 			outputFile.WriteString(fmt.Sprintf("%s\n", coord))
 		}
 	}
-
 }
+
+func report(sizes map[int][]string, sizeCountsList []map[int]int, count int) {
+	fmt.Printf("\n---Report:\n")
+
+	zStart := 10
+	zEnd := 10
+
+	multipleFreqSum := 0
+
+	for z := zStart; z >= zEnd; z-- {
+		sizeCounts := sizeCountsList[z]
+
+		freqPairs := rankByFreq(sizeCounts)
+
+		for _, pair := range freqPairs {
+			size := pair.Key
+			sizeCount := pair.Value
+			if sizeCount <= 100 {
+				break
+			}
+
+			sizeList := sizes[size]
+			filteredSizeList := make([]string, len(sizeList))
+			for _, coord := range sizeList {
+				if strings.Index(coord, strconv.Itoa(z)) == 0 {
+					filteredSizeList = append(filteredSizeList, coord)
+				}
+			}
+
+			fmt.Printf("[Zoom %d] - %d -- frequency: %d, samples: %s \n", z, size, sizeCount, sizeList)
+			multipleFreqSum += sizeCount
+		}
+	}
+	fmt.Printf("Repeated sizes make up %%%.2f percent of the total %d tiles found so far\n", float32(multipleFreqSum) * 100.0 / float32(count), count)
+
+ }
+
+func rankByFreq(etagFrequencies map[int]int) PairList{
+	pl := make(PairList, len(etagFrequencies))
+	i := 0
+	for k, v := range etagFrequencies {
+		pl[i] = Pair{k, v}
+		i++
+	}
+	sort.Sort(sort.Reverse(pl))
+	return pl
+}
+
+type Pair struct {
+	Key int
+	Value int
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int){ p[i], p[j] = p[j], p[i] }
