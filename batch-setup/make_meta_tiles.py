@@ -77,7 +77,7 @@ class MissingTileFinder(object):
             Prefix=self.dst_date_prefix,
         )
 
-        print("[make_meta_tiles] Listing logs to delete.")
+        print("[%s][make_meta_tiles] Listing logs to delete." % (time.ctime()))
         keys = []
         for page in page_iter:
             if page['KeyCount'] == 0:
@@ -89,7 +89,7 @@ class MissingTileFinder(object):
         # from AWS documentation, we can delete up to 1000 at a time.
         max_keys_per_chunk = 1000
 
-        print("[make_meta_tiles] Deleting old logs.")
+        print("[%s][make_meta_tiles] Deleting old logs." % (time.ctime()))
         for idx in range(0, len(keys), max_keys_per_chunk):
             chunk = keys[idx:idx+max_keys_per_chunk]
             response = self.s3.delete_objects(
