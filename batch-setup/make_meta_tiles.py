@@ -13,6 +13,7 @@ import io
 import sys
 import shutil
 import tempfile
+import time
 from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from utils.tiles import S3TileVerifier
 from tilequeue.tile import metatile_zoom_from_size
@@ -76,7 +77,7 @@ class MissingTileFinder(object):
             Prefix=self.dst_date_prefix,
         )
 
-        print("[make_meta_tiles] Listing logs to delete.")
+        print("[%s][make_meta_tiles] Listing logs to delete." % (time.ctime()))
         keys = []
         for page in page_iter:
             if page['KeyCount'] == 0:
@@ -88,7 +89,7 @@ class MissingTileFinder(object):
         # from AWS documentation, we can delete up to 1000 at a time.
         max_keys_per_chunk = 1000
 
-        print("[make_meta_tiles] Deleting old logs.")
+        print("[%s][make_meta_tiles] Deleting old logs." % (time.ctime()))
         for idx in range(0, len(keys), max_keys_per_chunk):
             chunk = keys[idx:idx+max_keys_per_chunk]
             response = self.s3.delete_objects(
@@ -105,12 +106,12 @@ class MissingTileFinder(object):
 
     def run_batch_job(self):
         # before we start, delete any data that exists under this date prefix
-        print("[make_meta_tiles] Clearing out old missing tile logs")
+        print("[%s][make_meta_tiles] Clearing out old missing tile logs" % (time.ctime()))
         self.clear_old_missing_logs()
 
         # enqueue the jobs to find all the existing meta tiles.
-        print("[make_meta_tiles] Running Batch job to enumerate existing "
-              "meta tiles.")
+        print("[%s][make_meta_tiles] Running Batch job to enumerate existing "
+              "meta tiles." % (time.ctime()))
         run_go(
             'tz-batch-submit-missing-meta-tiles',
             '-job-queue', self.job_queue_name,
@@ -123,14 +124,14 @@ class MissingTileFinder(object):
             '-key-format-type', self.key_format_type,
         )
 
-        print("[make_meta_tiles] Waiting for jobs to finish...")
+        print("[%s][make_meta_tiles] Waiting for jobs to finish..." % (time.ctime()))
         wait_for_jobs_to_finish(self.job_queue_name)
 
     def read_metas_to_file(self, filename, present=False, compress=False):
         if present:
-            print("[make_meta_tiles] Reading existing meta tiles")
+            print("[%s][make_meta_tiles] Reading existing meta tiles" % (time.ctime()))
         else:
-            print("[make_meta_tiles] Reading missing meta tiles")
+            print("[%s][make_meta_tiles] Reading missing meta tiles" % (time.ctime()))
 
         run_go('tz-missing-meta-tiles-read',
                '-bucket', self.missing_bucket,
@@ -149,10 +150,12 @@ class MissingTileFinder(object):
         """
 
         if try_generator and self.tile_coords_generator is not None:
-            print("[make_meta_tiles] generate missing tiles coords "
-                    "using customized generator")
+            print("[%s][make_meta_tiles] generate missing tiles coords "
+                  "using customized generator" % (time.ctime()))
             return self.tile_coords_generator.generate_tiles_coordinates()
         else:
+            print("[%s][make_meta_tiles] generate missing tiles coords by "
+                  "enumerating s3" % (time.ctime()))
             self.run_batch_job()
             missing_meta_file = os.path.join(tmpdir, 'missing_meta.txt')
             self.read_metas_to_file(missing_meta_file, compress=True)
@@ -183,7 +186,7 @@ class MissingTileFinder(object):
             missing_low_file = os.path.join(tmpdir, 'missing.low.txt')
             missing_high_file = os.path.join(tmpdir, 'missing.high.txt')
 
-            print("[make_meta_tiles] Splitting into high and low zoom lists")
+            print("[%s][make_meta_tiles] Splitting into high and low zoom lists" % (time.ctime()))
 
             # contains zooms 0 until group_by_zoom. the jobs between the group
             # zoom and RAWR zoom are merged into the parent at group zoom.

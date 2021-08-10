@@ -165,10 +165,11 @@ def wait_for_jobs_to_finish(job_queue, wait_time=300):
                        'RUNNING'):
             if any_jobs_with_status(batch, job_queue, status):
                 jobs_remaining = True
-                print("[%s] Still have jobs left in queue." % (time.ctime()))
+                print("[%s] Still have jobs left in queue %s." % (time.ctime(),
+                                                                  job_queue))
                 time.sleep(wait_time)
                 break
-    print("[make_rawr_tiles] [%s] All jobs finished (either SUCCEEDED or FAILED)" % (time.ctime()))
+    print("[%s] All jobs finished (either SUCCEEDED or FAILED)" % (time.ctime()))
 
 
 def make_rawr_tiles(rawr_config_file, missing_config_file, missing_bucket,
