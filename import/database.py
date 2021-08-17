@@ -90,7 +90,7 @@ def ensure_database(run_id, master_user_password):
             DBName='gis',
             DBInstanceIdentifier=instance_id,
             AllocatedStorage=2500,
-            DBInstanceClass='db.m6g.4xlarge',
+            DBInstanceClass='db.m6g.8xlarge',
             Engine='postgres',
             MasterUsername='gisuser',
             MasterUserPassword=master_user_password,
