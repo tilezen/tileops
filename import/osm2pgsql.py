@@ -28,7 +28,7 @@ def does_flat_nodes_file_exist(bucket, run_id):
 def reset_flat_nodes_file(bucket, run_id):
     s3 = boto3.client('s3')
     key = flat_nodes_key(run_id)
-    s3.delete_object(Bucket=bucket, Key=key)
+    s3.q(Bucket=bucket, Key=key)
 
 
 def does_database_have_data(instance, db):
@@ -232,7 +232,7 @@ def start_osm2pgsql_instance(
             ),
         )],
         ImageId=ami_id,
-        InstanceType='r5.4xlarge',
+        InstanceType='r5.8xlarge',
         KeyName=key_pair_name,
         SecurityGroupIds=[security_group_id, allow_this_ip],
         EbsOptimized=True,
