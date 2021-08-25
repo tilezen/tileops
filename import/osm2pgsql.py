@@ -28,7 +28,7 @@ def does_flat_nodes_file_exist(bucket, run_id):
 def reset_flat_nodes_file(bucket, run_id):
     s3 = boto3.client('s3')
     key = flat_nodes_key(run_id)
-    s3.q(Bucket=bucket, Key=key)
+    s3.delete_object(Bucket=bucket, Key=key)
 
 
 def does_database_have_data(instance, db):
