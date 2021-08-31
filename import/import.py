@@ -5,7 +5,6 @@ import datetime
 import osm
 import osm2pgsql
 import requests
-from distutils.util import strtobool
 
 
 def assert_no_snapshot(run_id):
