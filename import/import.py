@@ -66,6 +66,9 @@ parser.add_argument('--find-ip-address',
                     help='how to find ip address, <ipify|meta>')
 parser.add_argument('--run-id', help='Distinctive run ID to give to '
                     'this build. Defaults to planet date YYMMDD.')
+parser.add_argument('--skip-snapshot', default=False, action='store_true',
+                    help='Whether to skip the snapshot creation and instance '
+                         'deletion')
 
 args = parser.parse_args()
 
@@ -123,4 +126,7 @@ osm2pgsql.ensure_import(
     run_id, planet_url, planet_md5_url, planet_file, db, getattr(args, 'iam-instance-profile'),
     args.bucket, args.region, ip_addr, args.vector_datasource_version)
 
-database.take_snapshot_and_shutdown(db, run_id)
+if not args.skip_snapshot:
+    database.take_snapshot_and_shutdown(db, run_id)
+else:
+    print("take_snapshot_and_shutdown step skipped")
