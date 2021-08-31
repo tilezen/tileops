@@ -67,8 +67,9 @@ parser.add_argument('--find-ip-address',
                     help='how to find ip address, <ipify|meta>')
 parser.add_argument('--run-id', help='Distinctive run ID to give to '
                     'this build. Defaults to planet date YYMMDD.')
-parser.add_argument('--skip-snapshot', type=lambda x: bool(strtobool(x)),
-                    nargs='?', const=True, default=False)
+parser.add_argument('--skip-snapshot', default=False, action='store_true',
+                    help='Whether to skip the snapshot creation and instance '
+                         'deletion')
 
 args = parser.parse_args()
 
