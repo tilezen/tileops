@@ -530,7 +530,6 @@ if __name__ == '__main__':
                         'file for the OSM planet file specified by the '
                         'planet-url argument.')
     parser.add_argument('--skip-post-import-steps', dest='run_post_import_steps', action='store_false')
-    parser.set_defaults(run_post_import_steps=True)
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
