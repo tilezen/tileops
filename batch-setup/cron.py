@@ -529,6 +529,8 @@ if __name__ == '__main__':
                         '<planet-url>.md5 convention to specify an md5 '
                         'file for the OSM planet file specified by the '
                         'planet-url argument.')
+    parser.add_argument('--skip-post-import-steps', dest='run_post_import_steps', action='store_false')
+    parser.set_defaults(run_post_import_steps=True)
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -624,6 +626,7 @@ if __name__ == '__main__':
         job_env_overrides=" ".join(args.job_env_overrides),
         num_db_replicas=args.num_db_replicas,
         max_vcpus=args.max_vcpus,
+        run_post_import_steps=args.run_post_import_steps,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))

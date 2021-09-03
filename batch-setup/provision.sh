@@ -97,6 +97,7 @@ export METATILE_SIZE='%(metatile_size)d'
 
 export NUM_DB_REPLICAS='%(num_db_replicas)d'
 export MAX_VCPUS='%(max_vcpus)d'
+export RUN_POST_IMPORT_STEPS='%(run_post_import_steps)s'
 export JOB_ENV_OVERRIDES='%(job_env_overrides)s'
 eof
 
@@ -127,16 +128,26 @@ set -e
 # echo commands before executing them (useful to check that the arguments are correct)
 set -x
 
+if [ "$RUN_POST_IMPORT_STEPS" = "False" ]; then
+  echo "Warning: Will skip post import steps!"
+fi;
+
 python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --planet-url \$PLANET_URL --planet-md5-url \$PLANET_MD5_URL --run-id \$RUN_ID --vector-datasource-version \$VECTOR_DATASOURCE_VERSION \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
        \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD
-python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas \$NUM_DB_REPLICAS \
+
+if [ "$RUN_POST_IMPORT_STEPS" = "True" ]; then
+  python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas \$NUM_DB_REPLICAS \
        --max-vcpus \$MAX_VCPUS \$RUN_ID --missing-bucket \$MISSING_BUCKET \
        --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \
        \$DB_PASSWORD --overrides \$JOB_ENV_OVERRIDES
-python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix \
+  python -u /usr/local/src/tileops/batch-setup/make_rawr_tiles.py --config enqueue-rawr-batch.config.yaml --key-format-type hash-prefix \
        \$RAWR_BUCKET \$RUN_ID \$MISSING_BUCKET
-python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$META_DATE_PREFIX --missing-bucket \$MISSING_BUCKET \
+  python -u /usr/local/src/tileops/batch-setup/make_meta_tiles.py --date-prefix \$META_DATE_PREFIX --missing-bucket \$MISSING_BUCKET \
        --key-format-type hash-prefix --metatile-size \$METATILE_SIZE \$RAWR_BUCKET \$META_BUCKET \$RUN_ID
+else
+  echo "Skipping post-import steps!"
+fi;
+
 EOF
 chmod +x /usr/local/bin/run.sh
 
