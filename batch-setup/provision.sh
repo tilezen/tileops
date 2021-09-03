@@ -128,7 +128,7 @@ set -e
 # echo commands before executing them (useful to check that the arguments are correct)
 set -x
 
-if [ "$RUN_POST_IMPORT_STEPS" = "False" ]; then
+if [ "\$RUN_POST_IMPORT_STEPS" = "False" ]; then
   echo "Warning: Will skip all post-import steps!"
   SKIP_SNAPSHOT_ARG='--skip-snapshot'
 fi;
@@ -136,7 +136,7 @@ fi;
 python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --planet-url \$PLANET_URL --planet-md5-url \$PLANET_MD5_URL --run-id \$RUN_ID --vector-datasource-version \$VECTOR_DATASOURCE_VERSION \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
        \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD \$SKIP_SNAPSHOT_ARG
 
-if [ "$RUN_POST_IMPORT_STEPS" = "True" ]; then
+if [ "\$RUN_POST_IMPORT_STEPS" = "True" ]; then
   python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas \$NUM_DB_REPLICAS \
        --max-vcpus \$MAX_VCPUS \$RUN_ID --missing-bucket \$MISSING_BUCKET \
        --meta-date-prefix \$META_DATE_PREFIX \$RAWR_BUCKET \$META_BUCKET \
