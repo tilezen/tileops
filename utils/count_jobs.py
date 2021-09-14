@@ -1,6 +1,6 @@
 import boto3
 import argparse
-import datetimeg
+import datetime
 import time
 
 
