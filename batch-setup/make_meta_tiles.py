@@ -484,7 +484,7 @@ if __name__ == '__main__':
                         help='If all the RAWR tiles grouped together are '
                         'bigger than this, split the job up into individual '
                         'RAWR tiles.')
-    parser.add_argument('--allowed-missing-tiles', default=2, type=int,
+    parser.add_argument('--allowed-missing-tiles', default=0, type=int,
                         help='The maximum number of missing metatiles allowed '
                         'to continue the build process.')
     parser.add_argument('--use-tile-coords-generator', type=lambda x: bool(strtobool(x)), nargs='?',
