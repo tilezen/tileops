@@ -22,20 +22,21 @@ import (
 )
 
 const (
-	thisRunId      = "20210904"
-	prefixLength   = 3
+	thisRunId      = "20210903"
+	prefixLength   = 5
 	chanSizePeriod = 1 * time.Minute
 	reportPeriod   = 1 * time.Minute
-	dumpPeriod     = 15 * time.Minute
+	dumpPeriod     = 8 * time.Minute
 	zoomMax        = 13
-	regionName     = "ap-southeast-1"
+	regionName     = "us-east-1"
 	bucketName     = "sc-snapzen-meta-tiles-" + regionName
-	numWorkers = 256
+	numWorkers = 2048
 )
 
 var (
 	re = regexp.MustCompile(`...../` + thisRunId + `/(\d+)/(\d+)/(\d+)\.zip`)
 	numPrefixes    = int(math.Pow(16, prefixLength))
+	missingFilename = fmt.Sprintf("%s-%s-missing.txt", thisRunId, bucketName)
 )
 
 
@@ -47,38 +48,25 @@ func TestCountFoundS3(t *testing.T) {
 
 	var workerWaitGroup sync.WaitGroup
 	workerWaitGroup.Add(numWorkers)
-	var chanOfChoice chan string
 
-
-	if missingTiles.length() < numPrefixes {
-		coordChan := make(chan string, 100_000_000)
-
-		for i := 0; i < numWorkers; i++ {
-			makeCoordWorker(i + 1, missingTiles, coordChan, s3, workerWaitGroup)
-		}
-
-		missingTiles.listToChan(coordChan)
-		chanOfChoice = coordChan
-	} else {
-		prefixChan := make(chan string, numPrefixes)
-		for i := 0; i < numWorkers; i++ {
-			makePrefixWorker(i + 1, missingTiles, prefixChan, s3, workerWaitGroup)
-		}
-
-		loadPrefixChan(prefixChan, missingTiles)
-		chanOfChoice = prefixChan
+	prefixChan := make(chan string, numPrefixes)
+	for i := 0; i < numWorkers; i++ {
+		makePrefixWorker(i + 1, missingTiles, prefixChan, s3, workerWaitGroup)
 	}
 
-	trackPercentComplete(missingTiles, chanOfChoice, missingTiles.done)
+	loadPrefixChan(prefixChan, missingTiles)
+
+	trackPercentComplete(missingTiles, prefixChan, missingTiles.done)
 
 	workerWaitGroup.Wait()
+	fmt.Printf("Done waiting on workers")
 
 	missingTiles.done <- true
 	missingTiles.writeToFile()
 }
 
 func trackPercentComplete(missingTiles MissingTiles, chanOfChoice chan string, done chan bool) {
-	var startingChanSize = int(math.Min(float64(missingTiles.length()), float64(numPrefixes)))
+	var startingChanSize = numPrefixes
 	chanSizeTicker := time.NewTicker(chanSizePeriod)
 	go func() {
 		startTime := time.Now()
@@ -88,7 +76,7 @@ func trackPercentComplete(missingTiles MissingTiles, chanOfChoice chan string, d
 				currentChanSize := len(chanOfChoice)
 				percentRemaining := float64(currentChanSize) * 100 / float64(startingChanSize)
 				minutesElapsed := time.Now().Sub(startTime).Minutes()
-				fmt.Printf("Channel Size %d / %d - %2.3f remaining after %0.f minutes\n",
+				fmt.Printf("****Channel Size %d / %d - %2.3f%% remaining after %0.f minutes****\n",
 					currentChanSize, startingChanSize, percentRemaining, minutesElapsed)
 			case <-done:
 				minutesElapsed := time.Now().Sub(startTime).Minutes()
@@ -125,7 +113,9 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 
 	go func() {
 		var started bool
+		sleepCount := 0
 		for true {
+
 			select {
 			case prefix := <-worker.prefixChan:
 				err := worker.processPrefix(prefix)
@@ -135,11 +125,16 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 				}
 				started = true
 			default:
-				if !started {
+				if sleepCount > 3 {
+					fmt.Printf("Worker %d never got any work. Stopping\n", worker.id)
+					group.Done()
+					return
+				} else if !started {
 					fmt.Printf("Worker %d waiting to start \n", worker.id)
 					time.Sleep(1 * time.Second)
+					sleepCount++
 				} else {
-					fmt.Printf("Worker %d done \n", worker.id)
+					fmt.Printf("Worker %d done\n", worker.id)
 					group.Done()
 					return
 				}
@@ -266,16 +261,22 @@ func extractIntCoords(coordStr string) (int, int, int) {
 func queryForPrefix(prefix string, s *s3.S3, resultChan chan []*s3.Object) error {
 	defer close(resultChan)
 
+	var prefixParamString string
+	if prefixLength < 5 {
+		prefixParamString = prefix
+	} else {
+		prefixParamString = prefix + "/" + thisRunId
+	}
+
 	nextMarker := aws.String("")
 	for {
 		tempObjects, err := s.ListObjects(&s3.ListObjectsInput{
 			Bucket:  aws.String(bucketName),
-			Prefix:  aws.String(prefix),
+			Prefix:  aws.String(prefixParamString),
 			Marker: nextMarker,
 		})
 
 		if err != nil {
-			fmt.Println("error talking to s3 for prefix " + prefix)
 			return err
 			break
 		}
@@ -327,6 +328,7 @@ type MissingTiles struct {
 	done          chan bool
 	foundCount    int
 	locks         []sync.RWMutex
+	writeLock	  sync.Mutex
 	fromFile	  bool
 }
 
@@ -373,7 +375,9 @@ func newMissingTiles(zoomInclusive int, runId string) MissingTiles {
 			case <-reportTicker.C:
 				tiles.report()
 			case <- dumpTicker.C:
-				tiles.writeToFile()
+				go func() {
+					tiles.writeToFile()
+				}()
 			}
 		}
 	}()
@@ -399,12 +403,27 @@ func initMissingTiles(zoomInclusive int) []map[string]bool {
 }
 
 func (m *MissingTiles) writeToFile() {
-	filename := fmt.Sprintf("%s-missing.txt", m.runId)
-	outputFile, _ := os.Create(filename)
-	defer outputFile.Close()
+	// this is so gross
+	startedWaiting := time.Now()
+
+	m.writeLock.Lock()
+	defer m.writeLock.Unlock()
+
+	doneWaiting := time.Now()
+	waitTime := doneWaiting.Sub(startedWaiting)
 
 	list := m.list()
-	fmt.Printf("--Writing %d lines to %s\n", len(list), filename)
+
+	if waitTime > dumpPeriod {
+		fmt.Printf("--Skipping Writing %d tiles to file after waiting %0.1f minutes\n", len(list), waitTime.Minutes())
+		return
+	}
+
+	outputFile, _ := os.Create(missingFilename)
+	defer outputFile.Close()
+
+	start := time.Now()
+	fmt.Printf("--Writing %d lines to %s\n", len(list), missingFilename)
 
 	if len(list) == 0 {
 		fmt.Printf("Looks like we found everything!\n")
@@ -414,11 +433,13 @@ func (m *MissingTiles) writeToFile() {
 	for _, coordStr := range list {
 		outputFile.WriteString(coordStr + "\n")
 	}
-	fmt.Printf("--Done writing output file\n")
+	fmt.Printf("--Done writing %d lines to output file.  Took %0.1f minutes \n", len(list), time.Now().Sub(start).Minutes())
+
+
 }
 
 func (m *MissingTiles) restoreMissingTilesFromFile() bool {
-	open, err := os.Open(fmt.Sprintf("%s-missing.txt", m.runId))
+	open, err := os.Open(missingFilename)
 	if err != nil {
 		return false
 	}
@@ -526,9 +547,6 @@ func (m *MissingTiles) list() []string {
 }
 
 func loadPrefixChan(prefixChan chan string, tiles MissingTiles) {
-
-	// want this to all be changeable from a single const above
-
 	if tiles.fromFile {
 		loadFromMissingList(tiles, prefixChan)
 	} else {
