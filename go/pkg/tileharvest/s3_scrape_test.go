@@ -30,7 +30,7 @@ const (
 	zoomMax        = 13
 	regionName     = "us-east-1"
 	bucketName     = "sc-snapzen-meta-tiles-" + regionName
-	numWorkers = 2048
+	numWorkers = 256
 )
 
 var (
