@@ -39,7 +39,6 @@ var (
 	missingFilename = fmt.Sprintf("%s-%s-missing.txt", thisRunId, bucketName)
 )
 
-
 func TestCountFoundS3(t *testing.T) {
 	missingTiles := newMissingTiles(zoomMax, thisRunId)
 	missingTiles.report()
@@ -56,7 +55,7 @@ func TestCountFoundS3(t *testing.T) {
 
 	loadPrefixChan(prefixChan, missingTiles)
 
-	trackPercentComplete(missingTiles, prefixChan, missingTiles.done)
+	trackPercentComplete(prefixChan, missingTiles.done)
 
 	workerWaitGroup.Wait()
 	fmt.Printf("Done waiting on workers")
@@ -65,7 +64,7 @@ func TestCountFoundS3(t *testing.T) {
 	missingTiles.writeToFile()
 }
 
-func trackPercentComplete(missingTiles MissingTiles, chanOfChoice chan string, done chan bool) {
+func trackPercentComplete(chanOfChoice chan string, done chan bool) {
 	var startingChanSize = numPrefixes
 	chanSizeTicker := time.NewTicker(chanSizePeriod)
 	go func() {
@@ -85,14 +84,6 @@ func trackPercentComplete(missingTiles MissingTiles, chanOfChoice chan string, d
 			}
 		}
 	}()
-}
-
-type CoordWorker struct {
-	id           int
-	missingTiles MissingTiles
-	coordChan    chan string
-	s3           *s3.S3
-	doneChan 	 chan bool
 }
 
 type PrefixWorker struct {
@@ -145,37 +136,6 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 	return worker
 }
 
-
-func makeCoordWorker(id int, tiles MissingTiles, coordChan chan string, s3 *s3.S3, group sync.WaitGroup) CoordWorker {
-	worker := CoordWorker{
-		id:           id,
-		missingTiles: tiles,
-		coordChan:    coordChan,
-		s3:           s3,
-	}
-
-	go func() {
-		var started bool
-		for true {
-			select {
-			case coord := <-worker.coordChan:
-				worker.processCoord(coord)
-				started = true
-			default:
-				if !started {
-					fmt.Printf("Worker %d waiting to start \n", worker.id)
-					time.Sleep(1 * time.Second)
-				} else {
-					group.Done()
-					return
-				}
-			}
-		}
-	}()
-
-	return worker
-}
-
 func (p *PrefixWorker) processPrefix(thisPrefix string) error {
 	if rand.Intn(numWorkers) == 1 {
 		fmt.Printf("%d: Trying to find prefix %s\n", p.id, thisPrefix)
@@ -201,34 +161,6 @@ func (p *PrefixWorker) processPrefix(thisPrefix string) error {
 	}()
 
 	return queryForPrefix(thisPrefix, p.s3, resultChan)
-}
-
-func (c *CoordWorker) processCoord(thisCoord string) {
-	if !c.missingTiles.contains(thisCoord) {
-		return
-	}
-
-	if rand.Intn(1000) == 1 {
-		fmt.Printf("%d: Trying to find %s\n", c.id, thisCoord)
-	}
-
-	objects := queryForCoord(thisCoord, c.s3, c.missingTiles.runId)
-	if objects == nil {
-		return
-	}
-
-	for _, obj := range objects.Contents {
-		name := *obj.Key
-		if strings.Contains(name, c.missingTiles.runId) {
-			match := re.FindStringSubmatch(name)
-			zoom := mustAtoi(match[1])
-			x := mustAtoi(match[2])
-			y := mustAtoi(match[3])
-			foundCoord := fmt.Sprintf("%d/%d/%d", zoom, x, y)
-
-			c.missingTiles.remove(foundCoord)
-		}
-	}
 }
 
 func makeS3() *s3.S3 {
@@ -292,25 +224,6 @@ func queryForPrefix(prefix string, s *s3.S3, resultChan chan []*s3.Object) error
 	return nil
 }
 
-
-func queryForCoord(coordStr string, s *s3.S3, runId string) *s3.ListObjectsOutput {
-	z, x, y := extractIntCoords(coordStr)
-	prefix := s3Hash(z, x, y)
-
-	objects, err := s.ListObjects(&s3.ListObjectsInput{
-		Bucket:  aws.String( bucketName),
-		Marker:  aws.String(""),
-		MaxKeys: aws.Int64(5000),
-		Prefix:  aws.String(prefix + "/" + runId),
-	})
-
-	if err != nil {
-		fmt.Println("error talking to s3 for coord %s" + coordStr)
-		return nil
-	}
-	return objects
-}
-
 func mustAtoi(coord string) int {
 	atoi, err := strconv.Atoi(coord)
 	if err!= nil {
@@ -331,7 +244,6 @@ type MissingTiles struct {
 	writeLock	  sync.Mutex
 	fromFile	  bool
 }
-
 
 func newMissingTiles(zoomInclusive int, runId string) MissingTiles {
 	tiles := MissingTiles{
