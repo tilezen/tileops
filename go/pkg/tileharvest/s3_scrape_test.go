@@ -22,21 +22,27 @@ import (
 )
 
 const (
-	thisRunId      = "20210903"
-	prefixLength   = 5
+	thisRunId      = "20210825"
+	prefixLength   = 3
 	chanSizePeriod = 1 * time.Minute
 	reportPeriod   = 1 * time.Minute
 	dumpPeriod     = 8 * time.Minute
-	zoomMax        = 13
+	zoomMax        = 10
 	regionName     = "us-east-1"
 	bucketName     = "sc-snapzen-meta-tiles-" + regionName
-	numWorkers = 256
+	numWorkers = 1
+
 )
 
 var (
-	re = regexp.MustCompile(`...../` + thisRunId + `/(\d+)/(\d+)/(\d+)\.zip`)
-	numPrefixes    = int(math.Pow(16, prefixLength))
+	tileNamesFromThisRun = regexp.MustCompile(`...../` + thisRunId + `/(\d+)/(\d+)/(\d+)\.zip`)
+	extractRunId = regexp.MustCompile(`...../([A-Za-z0-9-_]+)/\d+/\d+/\d+\.zip`)
+	numPrefixes          = int(math.Pow(16, prefixLength))
 	missingFilename = fmt.Sprintf("%s-%s-missing.txt", thisRunId, bucketName)
+
+	deleteOld = false
+	// nothing will be deleted if above is false
+	oldIfBefore = time.Date(2020, time.September, 15, 0, 0, 0,0, time.Local)
 )
 
 func TestCountFoundS3(t *testing.T) {
@@ -142,22 +148,59 @@ func (p *PrefixWorker) processPrefix(thisPrefix string) error {
 	}
 
 	resultChan := make(chan []*s3.Object)
+	deleteChan := make(chan []*s3.Object)
 	go func() {
 		//	resultCount := 0
 		for result := range resultChan {
+			toDelete := make([]*s3.Object, 0, 0)
 			for _, obj := range result {
 				name := *obj.Key
 				if strings.Contains(name, p.missingTiles.runId) {
-					match := re.FindStringSubmatch(name)
+					match := tileNamesFromThisRun.FindStringSubmatch(name)
 					zoom := mustAtoi(match[1])
 					x := mustAtoi(match[2])
 					y := mustAtoi(match[3])
 					foundCoord := fmt.Sprintf("%d/%d/%d", zoom, x, y)
-					//TODO: check zoom here for faster debugging at lower zoom inclusives
 					p.missingTiles.remove(foundCoord)
+				} else if obj.LastModified.Before(oldIfBefore) {
+					toDelete = append(toDelete, obj)
+				}
+			}
+			deleteChan <- toDelete
+		}
+		close(deleteChan)
+	}()
+
+
+	go func() {
+		runIDCounts := make(map[string]int)
+		for objsToDelete := range deleteChan {
+			objIDs := make([]*s3.ObjectIdentifier, 0, len(objsToDelete))
+			for _, obj := range objsToDelete {
+				objIDs = append(objIDs, &s3.ObjectIdentifier{
+					Key:       obj.Key,
+				})
+
+				runID := extractRunId.FindStringSubmatch(*obj.Key)[1]
+				runIDCounts[runID]++
+			}
+
+
+
+			if deleteOld && len(objIDs) > 0 {
+				d := &s3.DeleteObjectsInput{
+					Bucket: aws.String(bucketName),
+					Delete: &s3.Delete{
+						Objects: objIDs,
+					},
+				}
+				_, err := p.s3.DeleteObjects(d)
+				if err != nil {
+					return 
 				}
 			}
 		}
+		fmt.Printf("Deleted Counts for %s: %v\n", thisPrefix, runIDCounts)
 	}()
 
 	return queryForPrefix(thisPrefix, p.s3, resultChan)
