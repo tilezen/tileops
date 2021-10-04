@@ -1,4 +1,4 @@
-package tileharvest
+package main
 
 import (
 	"bufio"
@@ -14,24 +14,24 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"testing"
+	"sync/atomic"
 	"time"
 )
 
 const (
-	thisRunId      = "20210825"
-	prefixLength   = 3
+	thisRunId      = "20210921"
+	prefixLength   = 5
 	chanSizePeriod = 1 * time.Minute
 	reportPeriod   = 1 * time.Minute
-	dumpPeriod     = 8 * time.Minute
+	dumpPeriod     = 1 * time.Minute
 	zoomMax        = 10
 	regionName     = "us-east-1"
 	bucketName     = "sc-snapzen-meta-tiles-" + regionName
-	numWorkers = 1
-
+	numWorkers = 128
 )
 
 var (
@@ -40,13 +40,20 @@ var (
 	numPrefixes          = int(math.Pow(16, prefixLength))
 	missingFilename = fmt.Sprintf("%s-%s-missing.txt", thisRunId, bucketName)
 
-	deleteOld = false
+	deleteOld = true
 	// nothing will be deleted if above is false
-	oldIfBefore = time.Date(2020, time.September, 15, 0, 0, 0,0, time.Local)
+	oldIfBefore = time.Date(2021, time.September, 2, 0, 0, 0,0, time.Local)
 )
 
-func TestCountFoundS3(t *testing.T) {
-	missingTiles := newMissingTiles(zoomMax, thisRunId)
+func main() {
+	deletedTilesTracker := newDeletedTilesTracker()
+	if deleteOld {
+		fmt.Println("!!!!! This will delete tiles !!!!")
+	} else {
+		fmt.Println("Dry run.  Won't delete tiles")
+	}
+
+	missingTiles := newMissingTiles(zoomMax, thisRunId, &deletedTilesTracker)
 	missingTiles.report()
 
 	s3 := makeS3()
@@ -56,7 +63,7 @@ func TestCountFoundS3(t *testing.T) {
 
 	prefixChan := make(chan string, numPrefixes)
 	for i := 0; i < numWorkers; i++ {
-		makePrefixWorker(i + 1, missingTiles, prefixChan, s3, workerWaitGroup)
+		makePrefixWorker(i + 1, missingTiles, prefixChan, s3, workerWaitGroup, &deletedTilesTracker)
 	}
 
 	loadPrefixChan(prefixChan, missingTiles)
@@ -66,8 +73,12 @@ func TestCountFoundS3(t *testing.T) {
 	workerWaitGroup.Wait()
 	fmt.Printf("Done waiting on workers")
 
-	missingTiles.done <- true
+	deletedTilesTracker.markDone()
+
+	missingTiles.markDone()
 	missingTiles.writeToFile()
+
+
 }
 
 func trackPercentComplete(chanOfChoice chan string, done chan bool) {
@@ -95,17 +106,19 @@ func trackPercentComplete(chanOfChoice chan string, done chan bool) {
 type PrefixWorker struct {
 	id           int
 	missingTiles MissingTiles
-	prefixChan    chan string
+	prefixChan   chan string
 	s3           *s3.S3
-	doneChan 	 chan bool
+	doneChan     chan bool
+	deletedTiles *DeletedTilesTracker
 }
 
-func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3.S3, group sync.WaitGroup) PrefixWorker {
+func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3.S3, group sync.WaitGroup, tracker *DeletedTilesTracker) PrefixWorker {
 	worker := PrefixWorker{
 		id:           id,
 		missingTiles: tiles,
 		prefixChan:   prefixChan,
 		s3:           s3,
+		deletedTiles: tracker,
 	}
 
 	go func() {
@@ -115,6 +128,10 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 
 			select {
 			case prefix := <-worker.prefixChan:
+				if rand.Intn(102) != 1 {
+					worker.prefixChan <- prefix
+					break
+				}
 				err := worker.processPrefix(prefix)
 				if err != nil {
 					fmt.Printf("Re-enqueueing prefix %s due to an error\n", prefix)
@@ -122,7 +139,7 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 				}
 				started = true
 			default:
-				if sleepCount > 3 {
+				if sleepCount > 10 {
 					fmt.Printf("Worker %d never got any work. Stopping\n", worker.id)
 					group.Done()
 					return
@@ -143,9 +160,9 @@ func makePrefixWorker(id int, tiles MissingTiles, prefixChan chan string, s3 *s3
 }
 
 func (p *PrefixWorker) processPrefix(thisPrefix string) error {
-	if rand.Intn(numWorkers) == 1 {
-		fmt.Printf("%d: Trying to find prefix %s\n", p.id, thisPrefix)
-	}
+	// if rand.Intn(numWorkers) == 1 {
+	// 	fmt.Printf("%d: Trying to find prefix %s\n", p.id, thisPrefix)
+	// }
 
 	resultChan := make(chan []*s3.Object)
 	deleteChan := make(chan []*s3.Object)
@@ -161,7 +178,7 @@ func (p *PrefixWorker) processPrefix(thisPrefix string) error {
 					x := mustAtoi(match[2])
 					y := mustAtoi(match[3])
 					foundCoord := fmt.Sprintf("%d/%d/%d", zoom, x, y)
-					p.missingTiles.remove(foundCoord)
+					p.missingTiles.markFound(foundCoord)
 				} else if obj.LastModified.Before(oldIfBefore) {
 					toDelete = append(toDelete, obj)
 				}
@@ -181,26 +198,51 @@ func (p *PrefixWorker) processPrefix(thisPrefix string) error {
 					Key:       obj.Key,
 				})
 
-				runID := extractRunId.FindStringSubmatch(*obj.Key)[1]
-				runIDCounts[runID]++
+				submatch := extractRunId.FindStringSubmatch(*obj.Key)
+				if len(submatch) < 2 {
+					fmt.Printf("!!!!!!!!! Error extracting runId from key %s !!!!!!!!!\n", *obj.Key)
+					continue
+				}
+				runIDCounts[submatch[1]]++
 			}
-
-
 
 			if deleteOld && len(objIDs) > 0 {
+				if len(objIDs) > 1000 {
+					fmt.Println("More than 1000 to delete for prefix " + thisPrefix)
+				}
 				d := &s3.DeleteObjectsInput{
-					Bucket: aws.String(bucketName),
+					Bucket:                    aws.String(bucketName),
 					Delete: &s3.Delete{
 						Objects: objIDs,
+						Quiet: aws.Bool(true),
 					},
 				}
-				_, err := p.s3.DeleteObjects(d)
-				if err != nil {
-					return 
+
+				maxRetries := 10
+				i := 0
+				for ; i < maxRetries; i++ {
+					_, err := p.s3.DeleteObjects(d)
+
+					if err == nil && i > 0 {
+						p.deletedTiles.countSuccessOnRetry()
+						break
+					}
+					sleepMultiplier := time.Duration(math.Pow(2, float64(i)))
+					time.Sleep(sleepMultiplier * 10 * time.Millisecond)
 				}
+
+				if i == maxRetries {
+					p.deletedTiles.countErrorOnRetry()
+					p.deletedTiles.countError()
+					fmt.Printf("!! Unfixable error on prefix %s after %d attempts\n", thisPrefix, maxRetries)
+				} else {
+					p.deletedTiles.countDeleteBatches(true)
+					p.deletedTiles.addDeletedCount(runIDCounts)
+				}
+			} else if len(objIDs) == 0 {
+				p.deletedTiles.countDeleteBatches(false)
 			}
 		}
-		fmt.Printf("Deleted Counts for %s: %v\n", thisPrefix, runIDCounts)
 	}()
 
 	return queryForPrefix(thisPrefix, p.s3, resultChan)
@@ -236,12 +278,15 @@ func extractIntCoords(coordStr string) (int, int, int) {
 func queryForPrefix(prefix string, s *s3.S3, resultChan chan []*s3.Object) error {
 	defer close(resultChan)
 
-	var prefixParamString string
-	if prefixLength < 5 {
-		prefixParamString = prefix
-	} else {
-		prefixParamString = prefix + "/" + thisRunId
-	}
+	// Commented this out because I wanted more granular chunks that could still be deleted
+	// var prefixParamString string
+	// if prefixLength < 5 {
+	// 	prefixParamString = prefix
+	// } else {
+	// 	prefixParamString = prefix + "/" + thisRunId
+	// }
+
+	prefixParamString := prefix
 
 	nextMarker := aws.String("")
 	for {
@@ -276,6 +321,117 @@ func mustAtoi(coord string) int {
 	return atoi
 }
 
+type DeletedTilesTracker struct {
+	PrefixMap              map[string]int
+	deletedChan            chan map[string]int
+	doneChan               chan bool
+	lock                   sync.Mutex
+	nothingToDeleteCount   uint32
+	somethingToDeleteCount uint32
+	errorCount             uint32
+	errorOnRetryCount      uint32
+	successOnRetryCount    uint32
+}
+
+func (t DeletedTilesTracker) report() {
+	fmt.Printf("===>\n")
+
+	batchCount := float32(t.somethingToDeleteCount + t.nothingToDeleteCount + t.errorCount)
+	deleteBatchPercent := float32(t.somethingToDeleteCount) / batchCount * 100
+	errorBatchPercent := float32(t.errorCount) / batchCount * 100
+	retrySuccessBatchPercent := float32(t.successOnRetryCount) / float32(t.errorOnRetryCount + t.successOnRetryCount) * 100
+
+	t.lock.Lock()
+	fmt.Printf("Delete Summary: %0.1E tiles so far. \n", float32(t.count()))
+	fmt.Printf("Batches: delete %d, nothing %d, percent deletes %2.2f\n", t.somethingToDeleteCount, t.nothingToDeleteCount, deleteBatchPercent)
+	fmt.Printf("Error on delete Batches: %d, percent %2.2f\n", t.errorCount, errorBatchPercent)
+	fmt.Printf("Retry on delete success: %d, error %d, percent retry successful %2.2f\n", t.successOnRetryCount, t.errorOnRetryCount, retrySuccessBatchPercent)
+
+	strings := make([]string, 0, len(t.PrefixMap))
+	for prefix, count := range t.PrefixMap {
+		str := fmt.Sprintf("---%s | %0.1E \n", prefix, float64(count))
+		strings = append(strings, str)
+	}
+
+	// sort these things so I can tell everything is ok faster
+	sort.Strings(strings)
+	for _, s := range strings {
+		fmt.Print(s)
+	}
+
+	t.lock.Unlock()
+	fmt.Printf("<===\n")
+}
+
+func (t DeletedTilesTracker) count() int {
+	sum := 0
+	for _, count := range t.PrefixMap {
+		sum += count
+	}
+
+	return sum
+}
+
+func (t *DeletedTilesTracker) addDeletedCount(prefixMap map[string]int) {
+	//t.deletedChan <- prefixMap
+}
+
+func newDeletedTilesTracker() DeletedTilesTracker {
+	deletedTiles := DeletedTilesTracker{
+		PrefixMap:   make(map[string]int),
+		deletedChan: make(chan map[string]int, 1000000),
+		doneChan:    make(chan bool),
+		lock:        sync.Mutex{},
+	}
+
+	go func() {
+		for true {
+			select {
+			case toCount := <-deletedTiles.deletedChan:
+				deletedTiles.lock.Lock()
+				for prefix, count := range toCount {
+					deletedTiles.PrefixMap[prefix] += count
+				}
+				deletedTiles.lock.Unlock()
+			case <- deletedTiles.doneChan:
+				fmt.Println("No longer counting deleted tiles")
+				return
+			default:
+				time.Sleep(1 * time.Second)
+			}
+		}
+	}()
+
+	return deletedTiles
+}
+
+func (t *DeletedTilesTracker) markDone() {
+	waitCount := 2
+	for i := 0; i < waitCount; i++ {
+		t.doneChan <- true
+	}
+}
+
+func (t *DeletedTilesTracker) countDeleteBatches(hadSomething bool) {
+	if hadSomething {
+		atomic.AddUint32(&t.somethingToDeleteCount, 1)
+	} else {
+		atomic.AddUint32(&t.nothingToDeleteCount, 1)
+	}
+}
+
+func (t *DeletedTilesTracker) countError() {
+	atomic.AddUint32(&t.errorCount, 1)
+}
+
+func (t *DeletedTilesTracker) countErrorOnRetry() {
+	atomic.AddUint32(&t.errorOnRetryCount, 1)
+}
+
+func (t *DeletedTilesTracker) countSuccessOnRetry() {
+	atomic.AddUint32(&t.successOnRetryCount, 1)
+}
+
 type MissingTiles struct {
 	TilesMap      []map[string]bool
 	runId         string
@@ -288,7 +444,7 @@ type MissingTiles struct {
 	fromFile	  bool
 }
 
-func newMissingTiles(zoomInclusive int, runId string) MissingTiles {
+func newMissingTiles(zoomInclusive int, runId string, tracker *DeletedTilesTracker) MissingTiles {
 	tiles := MissingTiles{
 		TilesMap:      nil,
 		runId:         runId,
@@ -310,6 +466,9 @@ func newMissingTiles(zoomInclusive int, runId string) MissingTiles {
 			select {
 				case toRemove := <-tiles.removeChan:
 					tiles._remove(toRemove)
+				case <- tiles.done:
+					fmt.Println("Done marking tiles found")
+					return
 				default:
 					time.Sleep(1 * time.Second)
 			}
@@ -329,6 +488,7 @@ func newMissingTiles(zoomInclusive int, runId string) MissingTiles {
 				return
 			case <-reportTicker.C:
 				tiles.report()
+				tracker.report()
 			case <- dumpTicker.C:
 				go func() {
 					tiles.writeToFile()
@@ -357,6 +517,13 @@ func initMissingTiles(zoomInclusive int) []map[string]bool {
 	return missingTiles
 }
 
+func (m *MissingTiles) markDone() {
+	waitCount := 2
+	for i := 0; i < waitCount; i++ {
+		m.done <- true
+	}
+}
+
 func (m *MissingTiles) writeToFile() {
 	// this is so gross
 	startedWaiting := time.Now()
@@ -374,7 +541,7 @@ func (m *MissingTiles) writeToFile() {
 		return
 	}
 
-	outputFile, _ := os.Create(missingFilename)
+	outputFile, _ := os.CreateTemp(".", missingFilename)
 	defer outputFile.Close()
 
 	start := time.Now()
@@ -388,9 +555,9 @@ func (m *MissingTiles) writeToFile() {
 	for _, coordStr := range list {
 		outputFile.WriteString(coordStr + "\n")
 	}
-	fmt.Printf("--Done writing %d lines to output file.  Took %0.1f minutes \n", len(list), time.Now().Sub(start).Minutes())
 
-
+	fmt.Printf("--Done writing %d lines to output file %s.  Took %0.1f minutes \n", len(list), outputFile.Name(), time.Now().Sub(start).Minutes())
+	os.Rename("./" + outputFile.Name(), "./" + missingFilename)
 }
 
 func (m *MissingTiles) restoreMissingTilesFromFile() bool {
@@ -418,8 +585,6 @@ func (m *MissingTiles) restoreMissingTilesFromFile() bool {
 }
 
 func (m *MissingTiles) report() {
-
-
 	fmt.Printf("--->\n")
 	fmt.Printf("Summary: Found a total of %d tiles we were looking for so far\n", m.foundCount)
 	var foundSum, missingSum, expectedSum int
@@ -433,10 +598,10 @@ func (m *MissingTiles) report() {
 		foundSum += foundCount
 		missingSum += missingCount
 		expectedSum += expectedCount
-		fmt.Printf("---%d | %d | %d | %0.f%%\n", z, foundCount, missingCount, percentDone)
+		fmt.Printf("---%d | %d | %d | %0.2f%%\n", z, foundCount, missingCount, percentDone)
 		m.locks[z].RUnlock()
 	}
-	fmt.Printf("---Total | %d | %d | %0.f%%\n", foundSum, missingSum, float64(foundSum)/float64(expectedSum)*100)
+	fmt.Printf("---Total | %0.2E | %0.2E | %0.f%%\n", float64(foundSum), float64(missingSum), float64(foundSum)/float64(expectedSum)*100)
 	fmt.Printf("<---\n")
 
 
@@ -452,7 +617,7 @@ func (m *MissingTiles) length() int {
 	return length
 }
 
-func (m *MissingTiles) remove(coordString string) {
+func (m *MissingTiles) markFound(coordString string) {
 	m.removeChan <- coordString
 }
 
