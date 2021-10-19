@@ -71,14 +71,6 @@ sudo DEBIAN_FRONTEND=noninteractive apt update
 sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
 sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python-pip python-pil libxml2-dev libxslt-dev unzip postgis
 
-# install osm2pgsql from PPA
-if [[ ! -x $OSM2PGSQL ]]; then
-    echo "installing osm2pgsql" > $STATUS
-    sudo DEBIAN_FRONTEND=noninteractive apt-add-repository -y ppa:tilezen/ppa
-    sudo DEBIAN_FRONTEND=noninteractive apt update
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y -q osm2pgsql
-fi
-
 # if there's no planet, then download it
 if [[ ! -f "planet/${PLANET_FILE}" ]]; then
     echo "downloading planet" > $STATUS
@@ -113,6 +105,17 @@ fi
 echo "setting up database extensions" > $STATUS
 psql -c "create extension if not exists postgis"
 psql -c "create extension if not exists hstore"
+
+echo "stopped so that Travis can try to upgrade os2mpgsql" > $STATUS
+exit 1
+
+# install osm2pgsql from PPA
+#if [[ ! -x $OSM2PGSQL ]]; then
+#    echo "installing osm2pgsql" > $STATUS
+#    sudo DEBIAN_FRONTEND=noninteractive apt-add-repository -y ppa:tilezen/ppa
+#    sudo DEBIAN_FRONTEND=noninteractive apt update
+#    sudo DEBIAN_FRONTEND=noninteractive apt install -y -q osm2pgsql
+#fi
 
 # check if there's any data already in the database!
 echo "checking for existing OSM data in database" > $STATUS
