@@ -517,4 +517,4 @@ def ensure_import(
             vector_datasource_version=vector_datasource_version,
         )
 
-    shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr)
+    #shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr)
