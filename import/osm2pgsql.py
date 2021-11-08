@@ -436,7 +436,8 @@ def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
 def ensure_import(
         run_id, planet_url, planet_md5_url, planet_file,
         db, iam_instance_profile, bucket, aws_region, ip_addr,
-        vector_datasource_version='master'):
+        vector_datasource_version='master',
+        skip_osm2pgsql_instance_shutdown=False):
     ec2 = boto3.client('ec2')
 
     # is there already an import instance running?
@@ -517,4 +518,5 @@ def ensure_import(
             vector_datasource_version=vector_datasource_version,
         )
 
-    #shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr)
+    if not skip_osm2pgsql_instance_shutdown:
+        shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr)

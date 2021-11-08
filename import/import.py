@@ -69,6 +69,10 @@ parser.add_argument('--run-id', help='Distinctive run ID to give to '
 parser.add_argument('--skip-snapshot', default=False, action='store_true',
                     help='Whether to skip the snapshot creation and instance '
                          'deletion')
+parser.add_argument('--skip-osm2pgsql-instance-shutdown', default=False,
+                    action='store_true',
+                    help='Whether to skip terminating the osm2pgsql EC2 '
+                         'instance after the osm2pgsql import')
 
 args = parser.parse_args()
 
@@ -124,7 +128,8 @@ else:
 
 osm2pgsql.ensure_import(
     run_id, planet_url, planet_md5_url, planet_file, db, getattr(args, 'iam-instance-profile'),
-    args.bucket, args.region, ip_addr, args.vector_datasource_version)
+    args.bucket, args.region, ip_addr, args.vector_datasource_version,
+    args.skip_osm2pgsql_instance_shutdown)
 
 if not args.skip_snapshot:
     database.take_snapshot_and_shutdown(db, run_id)
