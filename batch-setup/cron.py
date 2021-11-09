@@ -529,7 +529,15 @@ if __name__ == '__main__':
                         '<planet-url>.md5 convention to specify an md5 '
                         'file for the OSM planet file specified by the '
                         'planet-url argument.')
-    parser.add_argument('--skip-post-import-steps', dest='run_post_import_steps', action='store_false')
+    parser.add_argument('--skip-post-import-steps',
+                        dest='run_post_import_steps',
+                        action='store_false',
+                        help='Whether to skip the snapshot creation and '
+                             'instance deletion')
+    parser.add_argument('--skip-osm2pgsql-instance-shutdown', default=False,
+                        action='store_true',
+                        help='Whether to skip terminating the osm2pgsql EC2 '
+                             'instance after the osm2pgsql import')
 
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
@@ -626,6 +634,7 @@ if __name__ == '__main__':
         num_db_replicas=args.num_db_replicas,
         max_vcpus=args.max_vcpus,
         run_post_import_steps=args.run_post_import_steps,
+        skip_osm2pgsql_instance_shutdown=args.skip_osm2pgsql_instance_shutdown,
     )
 
     script_dir = os.path.dirname(os.path.realpath(__file__))

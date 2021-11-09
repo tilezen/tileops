@@ -98,6 +98,7 @@ export METATILE_SIZE='%(metatile_size)d'
 export NUM_DB_REPLICAS='%(num_db_replicas)d'
 export MAX_VCPUS='%(max_vcpus)d'
 export RUN_POST_IMPORT_STEPS='%(run_post_import_steps)s'
+export SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN='%(skip_osm2pgsql_instance_shutdown)s'
 export JOB_ENV_OVERRIDES='%(job_env_overrides)s'
 eof
 
@@ -133,8 +134,13 @@ if [ "\$RUN_POST_IMPORT_STEPS" = "False" ]; then
   SKIP_SNAPSHOT_ARG='--skip-snapshot'
 fi;
 
+if [ "\SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN" = "True" ]; then
+  echo "Warning: Will skip the termination of osm2pgsql instance!"
+  SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN_ARG='--skip-osm2pgsql-instance-shutdown'
+fi;
+
 python -u /usr/local/src/tileops/import/import.py --find-ip-address meta --planet-url \$PLANET_URL --planet-md5-url \$PLANET_MD5_URL --run-id \$RUN_ID --vector-datasource-version \$VECTOR_DATASOURCE_VERSION \$TILE_ASSET_BUCKET \$AWS_DEFAULT_REGION \
-       \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD \$SKIP_SNAPSHOT_ARG
+       \$TILE_ASSET_PROFILE_ARN \$DB_PASSWORD \$SKIP_SNAPSHOT_ARG \$SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN_ARG
 
 if [ "\$RUN_POST_IMPORT_STEPS" = "True" ]; then
   python -u /usr/local/src/tileops/batch-setup/make_tiles.py --num-db-replicas \$NUM_DB_REPLICAS \
