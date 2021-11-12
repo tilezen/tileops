@@ -134,7 +134,7 @@ if [ "\$RUN_POST_IMPORT_STEPS" = "False" ]; then
   SKIP_SNAPSHOT_ARG='--skip-snapshot'
 fi;
 
-if [ "\SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN" = "True" ]; then
+if [ "\$SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN" = "True" ]; then
   echo "Warning: Will skip the termination of osm2pgsql instance!"
   SKIP_OSM2PGSQL_INSTANCE_SHUTDOWN_ARG='--skip-osm2pgsql-instance-shutdown'
 fi;
