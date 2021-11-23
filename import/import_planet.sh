@@ -74,7 +74,6 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-
 # install osm2pgsql from PPA
 if [[ ! -x $OSM2PGSQL ]]; then
     echo "installing osm2pgsql" > $STATUS
-    sudo DEBIAN_FRONTEND=noninteractive apt-add-repository -y ppa:tilezen/ppa
     sudo DEBIAN_FRONTEND=noninteractive apt update
     sudo DEBIAN_FRONTEND=noninteractive apt install -y -q osm2pgsql
 fi
