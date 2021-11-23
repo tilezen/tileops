@@ -69,7 +69,7 @@ trap stop_with_failure ERR
 echo "installing software" > $STATUS
 sudo DEBIAN_FRONTEND=noninteractive apt update
 sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
-sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python-pip python-pil libxml2-dev libxslt-dev unzip postgis osm2pgsql
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python3-pip python-pil libxml2-dev libxslt-dev unzip postgis osm2pgsql
 
 # if there's no planet, then download it
 if [[ ! -f "planet/${PLANET_FILE}" ]]; then
