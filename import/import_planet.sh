@@ -69,15 +69,7 @@ trap stop_with_failure ERR
 echo "installing software" > $STATUS
 sudo DEBIAN_FRONTEND=noninteractive apt update
 sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
-sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python-virtualenv python-pip python-pil libxml2-dev libxslt-dev unzip postgis
-
-# install osm2pgsql from PPA
-if [[ ! -x $OSM2PGSQL ]]; then
-    echo "installing osm2pgsql" > $STATUS
-    sudo DEBIAN_FRONTEND=noninteractive apt-add-repository -y ppa:tilezen/ppa
-    sudo DEBIAN_FRONTEND=noninteractive apt update
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y -q osm2pgsql
-fi
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python3-pip python-pil libxml2-dev libxslt-dev unzip postgis osm2pgsql
 
 # if there's no planet, then download it
 if [[ ! -f "planet/${PLANET_FILE}" ]]; then

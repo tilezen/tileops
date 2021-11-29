@@ -196,12 +196,13 @@ def start_osm2pgsql_instance(
         ec2, run_id, key_pair_name, security_group_id,
         iam_instance_profile, ip_addr):
     # find latest official ubuntu server image
+    #
     response = ec2.describe_images(
         Filters=[
             dict(Name='name', Values=[
-                'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-*',
+                'aws-parallelcluster-*-ubuntu-2004-lts-hvm-x86_64-*',
             ]),
-            dict(Name='owner-id', Values=['099720109477']),
+            dict(Name='owner-id', Values=['247102896272']),
         ],
     )
     latest_image = max(response['Images'], key=(lambda i: i['CreationDate']))
