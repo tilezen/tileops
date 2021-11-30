@@ -150,6 +150,7 @@ if [[ $ntuples -eq 0 ]]; then
 
     echo "installing vector-datasource dependencies" > $STATUS
     cd vector-datasource
+    pip install pip==19.0
     pip install -U -r requirements.txt
     python setup.py develop
 
