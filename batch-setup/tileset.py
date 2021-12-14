@@ -1,5 +1,6 @@
-from ModestMaps.Core import Coordinate
 from itertools import chain
+
+from ModestMaps.Core import Coordinate
 
 
 class BitSet(object):

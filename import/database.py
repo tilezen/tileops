@@ -1,6 +1,7 @@
+from collections import namedtuple
+
 import boto3
 from botocore.exceptions import ClientError
-from collections import namedtuple
 
 
 Database = namedtuple(
@@ -75,17 +76,17 @@ def ensure_database(run_id, master_user_password):
 
     if does_snapshot_exist(rds, instance_id):
         raise RuntimeError(
-            "A snapshot with ID %r already exists, suggesting that this "
-            "import has already completed. If you are sure that you want "
-            "to re-run this import in its entirety, please delete that "
-            "snapshot first." % instance_id)
+            'A snapshot with ID %r already exists, suggesting that this '
+            'import has already completed. If you are sure that you want '
+            'to re-run this import in its entirety, please delete that '
+            'snapshot first.' % instance_id)
 
     security_group = instance_id + '-security-group'
     security_group_id = ensure_vpc_security_group(security_group)
-    print("Database is using security group %s" % security_group_id)
+    print('Database is using security group %s' % security_group_id)
 
     if not does_instance_exist(rds, instance_id):
-        print("Creating DB instance")
+        print('Creating DB instance')
         rds.create_db_instance(
             DBName='gis',
             DBInstanceIdentifier=instance_id,
@@ -103,12 +104,12 @@ def ensure_database(run_id, master_user_password):
             StorageType='gp2',
             StorageEncrypted=False,
             Tags=[
-                dict(Key='cost_sub_feature', Value="Tile Build"),
+                dict(Key='cost_sub_feature', Value='Tile Build'),
                 dict(Key='cost_resource_group', Value=run_id),
             ],
         )
 
-    print("Waiting for database to come up")
+    print('Waiting for database to come up')
     waiter = rds.get_waiter('db_instance_available')
     waiter.wait(DBInstanceIdentifier=instance_id)
 
@@ -118,7 +119,7 @@ def ensure_database(run_id, master_user_password):
     db = response['DBInstances'][0]
     assert len(db['VpcSecurityGroups']) == 1
 
-    print("Database instance up!")
+    print('Database instance up!')
 
     host = db['Endpoint']['Address']
     port = db['Endpoint']['Port']
@@ -141,12 +142,12 @@ def take_snapshot_and_shutdown(db, run_id):
 
     rds = boto3.client('rds')
 
-    print("Creating database snapshot")
+    print('Creating database snapshot')
     rds.create_db_snapshot(
         DBSnapshotIdentifier=instance_id,
         DBInstanceIdentifier=instance_id,
         Tags=[
-            dict(Key='cost_sub_feature', Value="Tile Build"),
+            dict(Key='cost_sub_feature', Value='Tile Build'),
             dict(Key='cost_resource_group', Value=run_id),
         ],
     )
@@ -159,7 +160,7 @@ def take_snapshot_and_shutdown(db, run_id):
         ),
     )
 
-    print("Created snapshot, shutting down database.")
+    print('Created snapshot, shutting down database.')
     rds.delete_db_instance(
         DBInstanceIdentifier=instance_id,
         SkipFinalSnapshot=True,
@@ -173,4 +174,4 @@ def take_snapshot_and_shutdown(db, run_id):
         )
     )
 
-    print("Database shut down and deleted.")
+    print('Database shut down and deleted.')

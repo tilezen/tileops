@@ -1,12 +1,13 @@
-import boto3
 import argparse
 import datetime
 import time
 
+import boto3
+
 
 def count_jobs(batch, job_queue):
     total = 0
-    message = ""
+    message = ''
 
     for status in ('SUBMITTED', 'PENDING', 'RUNNABLE', 'STARTING',
                    'RUNNING'):
@@ -26,25 +27,25 @@ def count_jobs(batch, job_queue):
                 nextToken=next_token,
             )
         if message:
-            message += ", "
-        message += "%6d %s" % (status_sum, status)
+            message += ', '
+        message += '%6d %s' % (status_sum, status)
         total += status_sum
 
-    return "%6d TOTAL (%s)" % (total, message)
+    return '%6d TOTAL (%s)' % (total, message)
 
 
 def log_msg(msg):
     now = datetime.datetime.now()
-    print("[%s] %s" % (now.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    print('[%s] %s' % (now.strftime('%Y-%m-%d %H:%M:%S'), msg))
 
 
 parser = argparse.ArgumentParser(description="""
 Count the jobs in each status in the job queue. This gives you the true count
 of all the jobs, rather than the "1000+" that gets shown in the Batch console.
 """)
-parser.add_argument("date", help="Date prefix to use, YYMMDD.")
-parser.add_argument("--interval", type=int, default=300, help="Number of "
-                    "seconds between updates.")
+parser.add_argument('date', help='Date prefix to use, YYMMDD.')
+parser.add_argument('--interval', type=int, default=300, help='Number of '
+                    'seconds between updates.')
 args = parser.parse_args()
 
 job_queue = 'job-queue-%s' % (args.date,)
@@ -59,7 +60,7 @@ while True:
     next_time += interval
     while next_time <= time.time():
         now = datetime.datetime.now()
-        log_msg("Count took too long, skipping update.")
+        log_msg('Count took too long, skipping update.')
         next_time += interval
 
     time.sleep(next_time - time.time())

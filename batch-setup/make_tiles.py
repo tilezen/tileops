@@ -1,15 +1,17 @@
-from ecr import ensure_ecr
-from rds import ensure_dbs
-from batch_setup import batch_setup
+import argparse
+import json
+import os
+from collections import defaultdict
+
+import yaml
 from batch import Buckets
 from batch import create_job_definitions
-from docker import build_and_upload_images
+from batch_setup import batch_setup
+from ecr import ensure_ecr
+from rds import ensure_dbs
 from run_id import assert_run_id_format
-import argparse
-import os
-import yaml
-import json
-from collections import defaultdict
+
+from docker import build_and_upload_images
 
 
 def vpc_of_sg(sg_id):
@@ -84,8 +86,8 @@ if args.meta_bucket.startswith('[') and args.meta_bucket.endswith(']'):
 else:
     meta_buckets = [args.meta_bucket]
 
-assert meta_buckets, "[make_tiles] Must configure at least one meta tile " \
-                     "storage bucket."
+assert meta_buckets, '[make_tiles] Must configure at least one meta tile ' \
+                     'storage bucket.'
 
 # check that bucket names look like valid bucket names
 assert _looks_like_an_s3_bucket_name(args.rawr_bucket), \
@@ -94,19 +96,19 @@ assert _looks_like_an_s3_bucket_name(args.rawr_bucket), \
 if args.missing_bucket is not None:
     assert _looks_like_an_s3_bucket_name(args.missing_bucket), \
         "[make_tiles] missing bucket name %r doesn't look like an S3 " \
-        "bucket name." \
+        'bucket name.' \
         % (args.missing_bucket,)
 for bucket in meta_buckets:
     assert _looks_like_an_s3_bucket_name(bucket), \
         "[make_tiles] meta bucket name %r doesn't look like an S3 " \
-        "bucket name." % (bucket,)
+        'bucket name.' % (bucket,)
 
 
 region = args.region or os.environ.get('AWS_DEFAULT_REGION')
 if region is None:
     import sys
-    print("[make_tiles] ERROR: Need environment variable AWS_DEFAULT_REGION "
-          "to be set.")
+    print('[make_tiles] ERROR: Need environment variable AWS_DEFAULT_REGION '
+          'to be set.')
     sys.exit(1)
 
 # unpack overrides into a dict, so it's easier to work with
@@ -199,6 +201,6 @@ for name in ('rawr-batch', 'meta-batch', 'meta-low-zoom-batch',
 # have the Docker images changed?) would mean duplicating a bunch of
 # functionality already in various tools we use. this seemed a good place to
 # have a "breakpoint" where we'd "lock in" and not re-run the previous steps.
-print("RUN THIS NEXT>> python make_rawr_tiles.py "
-      "--config enqueue-rawr-batch.config.yaml %r %r"
+print('RUN THIS NEXT>> python make_rawr_tiles.py '
+      '--config enqueue-rawr-batch.config.yaml %r %r'
       % (buckets.rawr, date_prefix))

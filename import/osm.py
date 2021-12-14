@@ -1,14 +1,17 @@
-import requests
 import re
 from datetime import datetime
 
+import requests
 
-planet_file_pattern = re.compile('^https://planet.openstreetmap.org/pbf/planet-([0-9]{6}).osm.pbf$')
+
+planet_file_pattern = re.compile(
+    '^https://planet.openstreetmap.org/pbf/planet-([0-9]{6}).osm.pbf$')
 
 
 def latest_planet_date():
     # Fetch the latest planet redirect
-    req = requests.get('https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', allow_redirects=False)
+    req = requests.get(
+        'https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf', allow_redirects=False)
     assert req.status_code == 302
     assert req.next
     assert req.next.url

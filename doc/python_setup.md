@@ -17,4 +17,3 @@ The instructions below will assume Amazon Linux, but similar packages should exi
 1. Use Pipenv to enter a shell in the virtual environment:
 
        pipenv shell
-

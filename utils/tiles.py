@@ -1,18 +1,23 @@
-from ModestMaps.Core import Coordinate
-from mercantile import tiles
-from mercantile import tile
+from typing import Iterator
+from typing import List
+
 import boto3
+from mercantile import tile
+from mercantile import tiles
+from ModestMaps.Core import Coordinate
+from tilequeue.command import find_job_coords_for
+from tilequeue.store import make_s3_tile_key_generator
+from tilequeue.tile import coord_children_range
+
 from utils.constants import MAX_TILE_ZOOM
 from utils.constants import MIN_TILE_ZOOM
-from tilequeue.store import make_s3_tile_key_generator
-from tilequeue.command import find_job_coords_for
-from tilequeue.tile import coord_children_range
 
 
 class TileCoordinatesGenerator(object):
     """
     Generate tiles EPSG:3857 coordinates from a list of zooms within a range
     """
+
     def __init__(self, min_zoom, max_zoom):
         # type: (int, int) -> None
         """
@@ -60,7 +65,8 @@ class BoundingBoxTileCoordinatesGenerator(TileCoordinatesGenerator):
         :param min_zoom: the minimum zoom(inclusive) it can generate tiles for
         :param max_zoom: the maximum zoom(inclusive) it can generate tiles for
         """
-        super(BoundingBoxTileCoordinatesGenerator, self).__init__(min_zoom=min_zoom, max_zoom=max_zoom)
+        super(BoundingBoxTileCoordinatesGenerator, self).__init__(
+            min_zoom=min_zoom, max_zoom=max_zoom)
         self.min_x = min_x
         self.min_y = min_y
         self.max_x = max_x
@@ -104,9 +110,12 @@ class S3TileVerifier(object):
         :param key_format_type_str: the style of S3 key prefix
         :param rawr_s3_bucket: the s3 bucket for storing rawr tiles
         :param meta_s3_bucket: the s3 bucket for storing meta tiles
-        :param rawr_tile_filename: the local file name to store rawr tiles coords and its last updated time on S3
-        :param high_zoom_tile_filename: the local file name to store high_zoom meta tiles coords and its last updated time on S3
-        :param low_zoom_tile_filename: the local file name to store low_zoom meta tiles coords and its last updated time on S3
+        :param rawr_tile_filename: the local file name to store rawr tiles
+            coords and its last updated time on S3
+        :param high_zoom_tile_filename: the local file name to store high_zoom
+            meta tiles coords and its last updated time on S3
+        :param low_zoom_tile_filename: the local file name to store low_zoom
+            meta tiles coords and its last updated time on S3
         """
         self.date_prefix = date_prefix
         self.key_format_type_str = key_format_type_str
@@ -117,7 +126,7 @@ class S3TileVerifier(object):
         self.rawr_s3_bucket = rawr_s3_bucket
         self.meta_s3_bucket = meta_s3_bucket
 
-    # The tile coords expansion logic mimics https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L1861
+    # The tile coords expansion logic mimics https://github.com/tilezen/tilequeue/blob/9644d916a864bd7d97448c40823158016e5e6dd2/tilequeue/command.py#L1861  # noqa: E501
     def generate_tile_coords_rebuild_paths_rawr(self, job_coords, group_by_zoom):
         """
         Generate the s3 paths of the rawr tiles that need to be rebuilt.
@@ -141,8 +150,9 @@ class S3TileVerifier(object):
                     Bucket=self.rawr_s3_bucket,
                     Key=path
                 )
-                datetime_value = response["LastModified"]
-                fh.write(path + "," + datetime_value.strftime("%Y-%m-%dT%H:%M:%S%z") + "\n")
+                datetime_value = response['LastModified']
+                fh.write(path + ',' +
+                         datetime_value.strftime('%Y-%m-%dT%H:%M:%S%z') + '\n')
 
         return all_coords_paths
 
@@ -168,7 +178,7 @@ class S3TileVerifier(object):
         for job_coord_int in job_coords_int:
             assert queue_zoom <= job_coord_int.zoom <= group_by_zoom, \
                 'Unexpected zoom: %d, zoom should be between %d and %d' % (
-                job_coord_int.zoom, queue_zoom, group_by_zoom)
+                    job_coord_int.zoom, queue_zoom, group_by_zoom)
             more_job_coords = find_job_coords_for(job_coord_int, group_by_zoom)
             for mjc in more_job_coords:
                 pyramid_coords = [mjc]
@@ -184,8 +194,9 @@ class S3TileVerifier(object):
                     Bucket=self.meta_s3_bucket,
                     Key=path
                 )
-                datetime_value = response["LastModified"]
-                fh.write(path + "," + datetime_value.strftime("%Y-%m-%dT%H:%M:%S%z") + "\n")
+                datetime_value = response['LastModified']
+                fh.write(path + ',' +
+                         datetime_value.strftime('%Y-%m-%dT%H:%M:%S%z') + '\n')
 
         return all_coords_paths
 
@@ -226,8 +237,9 @@ class S3TileVerifier(object):
                     Bucket=self.meta_s3_bucket,
                     Key=path
                 )
-                datetime_value = response["LastModified"]
-                fh.write(path + "," + datetime_value.strftime("%Y-%m-%dT%H:%M:%S%z") + "\n")
+                datetime_value = response['LastModified']
+                fh.write(path + ',' +
+                         datetime_value.strftime('%Y-%m-%dT%H:%M:%S%z') + '\n')
         return all_coords_paths
 
     def verify_tiles_rebuild_time(self, tile_type):
@@ -271,9 +283,9 @@ class S3TileVerifier(object):
                     assert datetime_str > modified_time_before_rebuild, \
                         '{tile_type} {key} new time:{new_time} is not newer ' \
                         'than old time:{old_time}'.format(
-                        tile_type=tile_type, key=s3_key_path,
-                        new_time=datetime_str,
-                        old_time=modified_time_before_rebuild)
+                            tile_type=tile_type, key=s3_key_path,
+                            new_time=datetime_str,
+                            old_time=modified_time_before_rebuild)
                 except Exception as e:
                     print(
                         'exceptions encountered during verifying {tile_type} '
@@ -284,4 +296,5 @@ class S3TileVerifier(object):
             print('all {tile_type} tiles successfully verified'.format(
                 tile_type=tile_type))
         else:
-            print('{tile_type} tiles failed to be verified.'.format(tile_type=tile_type))
+            print('{tile_type} tiles failed to be verified.'.format(
+                tile_type=tile_type))

@@ -1,6 +1,7 @@
-import boto3
 import json
 import time
+
+import boto3
 
 
 def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
@@ -15,7 +16,7 @@ def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
             RoleName=role_name,
         )
         role_arn = response['Role']['Arn']
-        print("Found role %s at %s" % (role_name, role_arn))
+        print('Found role %s at %s' % (role_name, role_arn))
     except boto_iam.exceptions.NoSuchEntityException:
         response = boto_iam.create_role(
             Path=role_path,
@@ -23,7 +24,7 @@ def get_or_create_role(boto_iam, role_name, role_document, role_path=None):
             AssumeRolePolicyDocument=json.dumps(role_document),
         )
         role_arn = response['Role']['Arn']
-        print("Created role %s at %s" % (role_name, role_arn))
+        print('Created role %s at %s' % (role_name, role_arn))
 
     return role_arn
 
@@ -87,26 +88,26 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
     response = boto_ec2.describe_subnets(
         Filters=[
             {
-                "Name": "vpc-id",
-                "Values": [vpc_id]
+                'Name': 'vpc-id',
+                'Values': [vpc_id]
             }
         ]
     )
     subnet_ids = [s['SubnetId'] for s in response['Subnets']]
-    print("Found subnets %s on VPC %s" % (subnet_ids, vpc_id))
+    print('Found subnets %s on VPC %s' % (subnet_ids, vpc_id))
 
     # Create the batch service role
     # https://docs.aws.amazon.com/batch/latest/userguide/service_IAM_role.html
-    serviceRoleName = "AWSBatchServiceRole"
+    serviceRoleName = 'AWSBatchServiceRole'
     serviceRoleDocument = {
-        "Version": "2012-10-17",
-        "Statement": [
+        'Version': '2012-10-17',
+        'Statement': [
             {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "batch.amazonaws.com"
+                'Effect': 'Allow',
+                'Principal': {
+                    'Service': 'batch.amazonaws.com'
                 },
-                "Action": "sts:AssumeRole"
+                'Action': 'sts:AssumeRole'
             }
         ]
     }
@@ -114,7 +115,7 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
     serviceRoleArn = get_or_create_role(
         boto_iam, serviceRoleName, serviceRoleDocument,
         role_path='/service-role/')
-    print("Using batch service role %s" % serviceRoleArn)
+    print('Using batch service role %s' % serviceRoleArn)
 
     # Look for the AWS-managed "AWSBatchServiceRole" that should be attached to
     # the service role
@@ -123,30 +124,30 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         PolicyArn=serviceRolePolicy['Arn'],
         RoleName=serviceRoleName,
     )
-    print("Batch service policy attached to batch service role")
+    print('Batch service policy attached to batch service role')
 
     # Create the instance role
     # https://docs.aws.amazon.com/batch/latest/userguide/instance_IAM_role.html
-    instanceRoleName = "ecsInstanceRole"
+    instanceRoleName = 'ecsInstanceRole'
     instanceRoleDocument = {
-        "Version": "2012-10-17",
-        "Statement": [
+        'Version': '2012-10-17',
+        'Statement': [
             {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "ec2.amazonaws.com"
+                'Effect': 'Allow',
+                'Principal': {
+                    'Service': 'ec2.amazonaws.com'
                 },
-                "Action": "sts:AssumeRole"
+                'Action': 'sts:AssumeRole'
             }
         ]
     }
     instanceRoleArn = get_or_create_role(
         boto_iam, instanceRoleName, instanceRoleDocument)
-    print("Using ECS instance role %s" % instanceRoleArn)
+    print('Using ECS instance role %s' % instanceRoleArn)
 
     instanceProfileArn = get_or_create_instance_profile(
         boto_iam, boto_ec2, instanceRoleName, instanceRoleName)
-    print("Using ECS instance profile %s" % instanceProfileArn)
+    print('Using ECS instance profile %s' % instanceProfileArn)
 
     # Create a compute environment for raw tile rendering
     try:
@@ -155,25 +156,25 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         )
         computeEnvironmentInfo = response['computeEnvironments'][0]
         computeEnvironmentArn = computeEnvironmentInfo['computeEnvironmentArn']
-        print("Reusing existing batch compute environment %s"
+        print('Reusing existing batch compute environment %s'
               % computeEnvironmentArn)
     except IndexError:
         response = boto_batch.create_compute_environment(
             computeEnvironmentName=computeEnvironmentName,
-            type="MANAGED",
-            state="ENABLED",
+            type='MANAGED',
+            state='ENABLED',
             serviceRole=serviceRoleArn,
             computeResources=dict(
                 type='EC2',
                 minvCpus=0,
                 maxvCpus=max_vcpus,
                 desiredvCpus=0,
-                instanceTypes=["m5"],
+                instanceTypes=['m5'],
                 # although this is called "instanceRole", it really wants an instance _profile_ ARN.
                 instanceRole=instanceProfileArn,
                 tags={
                     'Name': 'Tiles Rendering',
-                    'cost_sub_feature': "Tile Build",
+                    'cost_sub_feature': 'Tile Build',
                     'cost_resource_group': run_id,
                 },
                 subnets=subnet_ids,
@@ -181,7 +182,7 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
             )
         )
         computeEnvironmentArn = response['computeEnvironmentArn']
-        print("Created batch compute environment %s" % computeEnvironmentArn)
+        print('Created batch compute environment %s' % computeEnvironmentArn)
 
     # each iteration sleeps for sleep_time, and the process will exit with a
     # failure after timeout_time.
@@ -195,16 +196,16 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         )
         computeEnvironmentInfo = response['computeEnvironments'][0]
         if computeEnvironmentInfo['status'] == 'VALID':
-            print("Compute environment is enabled and valid.")
+            print('Compute environment is enabled and valid.')
             break
         elif time.time() > started_at + timeout_time:
             raise RuntimeError(
-                "Timed out after %f seconds waiting for compute "
-                "enviroment to become valid. Possibly there is some "
-                "more information in the AWS console?" %
+                'Timed out after %f seconds waiting for compute '
+                'enviroment to become valid. Possibly there is some '
+                'more information in the AWS console?' %
                 (timeout_time))
         else:
-            print("Waiting for compute environment to be enabled and valid.")
+            print('Waiting for compute environment to be enabled and valid.')
             time.sleep(sleep_time)
 
     # Create a job queue to attach to the compute environment
@@ -214,15 +215,15 @@ def batch_setup(region_name, run_id, vpc_id, securityGroupIds, computeEnvironmen
         )
         jobQueueInfo = response['jobQueues'][0]
         jobQueueArn = jobQueueInfo['jobQueueArn']
-        print("Reusing existing batch job queue %s" % jobQueueArn)
+        print('Reusing existing batch job queue %s' % jobQueueArn)
     except IndexError:
         response = boto_batch.create_job_queue(
             jobQueueName=jobQueueName,
-            state="ENABLED",
+            state='ENABLED',
             priority=10,
             computeEnvironmentOrder=[
                 dict(order=1, computeEnvironment=computeEnvironmentArn)
             ]
         )
         jobQueueArn = response['jobQueueArn']
-        print("Created batch job queue %s" % jobQueueArn)
+        print('Created batch job queue %s' % jobQueueArn)

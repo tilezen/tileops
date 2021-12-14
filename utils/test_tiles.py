@@ -1,5 +1,6 @@
-from utils.tiles import BoundingBoxTileCoordinatesGenerator
 from ModestMaps.Core import Coordinate
+
+from utils.tiles import BoundingBoxTileCoordinatesGenerator
 
 
 def test_tiles_within_bbox():
@@ -43,5 +44,4 @@ def test_tiles_within_bbox():
     zoomedCoords = set(coord.zoomTo(7).container() for coord in res)
 
     assert set([Coordinate(44, 20, 7), Coordinate(44, 21, 7), Coordinate(45, 20, 7), Coordinate(45, 21, 7)]) == \
-           zoomedCoords
-
+        zoomedCoords

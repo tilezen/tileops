@@ -1,6 +1,7 @@
-import boto3
-import json
 import argparse
+import json
+
+import boto3
 
 
 def list_job_ids(batch, **kwargs):
@@ -39,12 +40,12 @@ def print_failures(cwlogs, log_stream_name):
                 msg = json.loads(msg[25:])
                 if msg.get('type') == 'error':
                     coord = msg['coord']
-                    coord_str = "%d/%d/%d" % (coord['z'], coord['x'],
+                    coord_str = '%d/%d/%d' % (coord['z'], coord['x'],
                                               coord['y'])
-                    print("%15s: %s" % (coord_str, msg['exception']))
+                    print('%15s: %s' % (coord_str, msg['exception']))
                     trace = msg.get('stacktrace')
                     if trace:
-                        print("    " + trace.replace("|", "\n    "))
+                        print('    ' + trace.replace('|', '\n    '))
 
         new_token = response.get('nextForwardToken')
         if new_token is None or new_token == next_token:
@@ -81,5 +82,5 @@ for i in range(0, num_chunks + 1):
         name = job['jobName']
         last_attempt = job['attempts'][-1]
         log_stream_name = last_attempt['container']['logStreamName']
-        print("=== %s ===\n" % (name,))
+        print('=== %s ===\n' % (name,))
         print_failures(cwlogs, log_stream_name)

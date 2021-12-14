@@ -93,7 +93,7 @@ Each job definition needs to have the appropriate environment variables configur
 
 The `tilequeue batch-enqueue` command allows job submission. This can be run locally, and submitting most jobs takes about 20 minutes.
 
-When running the enqueue, update the configuration file to contain the appropriate values for the batch section. 
+When running the enqueue, update the configuration file to contain the appropriate values for the batch section.
 
 * `job-definition`
 * `job-queue`
