@@ -1,6 +1,7 @@
+import re
+
 import boto3
 from botocore.exceptions import ClientError
-import re
 
 
 # TODO: this is copy-pasta. should we merge all the python stuff together into
@@ -72,8 +73,8 @@ REPLICA_ID_PATTERN = re.compile('.*-rr([0-9]{3})$')
 def parse_replica_id(replica_id):
     m = REPLICA_ID_PATTERN.match(replica_id)
     if not m:
-        raise RuntimeError("Unable to parse replica ID from %r (expected it "
-                           "to end -rrNNN)" % replica_id)
+        raise RuntimeError('Unable to parse replica ID from %r (expected it '
+                           'to end -rrNNN)' % replica_id)
 
     return int(m.groups(1)[0])
 
@@ -89,13 +90,13 @@ def parse_next_replica_id(databases):
 def start_database_from_snapshot(rds, run_id, snapshot_id, replica_num):
     instance_id = '%s-rr%03d' % (snapshot_id, replica_num)
 
-    print("Starting instance %r" % instance_id)
+    print('Starting instance %r' % instance_id)
     result = rds.restore_db_instance_from_db_snapshot(
         DBInstanceIdentifier=instance_id,
         DBSnapshotIdentifier=snapshot_id,
         PubliclyAccessible=False,
         Tags=[
-            dict(Key='cost_sub_feature', Value="Tile Build"),
+            dict(Key='cost_sub_feature', Value='Tile Build'),
             dict(Key='cost_resource_group', Value=run_id),
         ],
     )
@@ -116,19 +117,19 @@ def ensure_dbs(run_id, num_instances):
     rds = boto3.client('rds')
 
     if not does_snapshot_exist(rds, snapshot_id):
-        raise RuntimeError("Snapshot %r does not exist, was the database "
-                           "import run successfully?" % snapshot_id)
+        raise RuntimeError('Snapshot %r does not exist, was the database '
+                           'import run successfully?' % snapshot_id)
 
     security_group = snapshot_id + '-security-group'
     security_group_id = ensure_vpc_security_group(security_group)
 
     databases = databases_running_snapshot(rds, snapshot_id)
-    print("%d running instances, want %d" % (len(databases), num_instances))
+    print('%d running instances, want %d' % (len(databases), num_instances))
 
     if len(databases) < num_instances:
         # start new instances
         num_new_instances = num_instances - len(databases)
-        print("Starting %d new instances from snapshot" % num_new_instances)
+        print('Starting %d new instances from snapshot' % num_new_instances)
 
         next_replica_id = parse_next_replica_id(databases)
         new_databases = []
@@ -140,7 +141,7 @@ def ensure_dbs(run_id, num_instances):
 
         waiter = rds.get_waiter('db_instance_available')
         for replica_id in new_databases:
-            print("Waiting for %r to come up" % replica_id)
+            print('Waiting for %r to come up' % replica_id)
             waiter.wait(DBInstanceIdentifier=replica_id)
 
         # make sure new database is in the right security group. not sure why
@@ -150,16 +151,16 @@ def ensure_dbs(run_id, num_instances):
 
         # wait _again_ to make sure that the SG modifications have taken hold
         for replica_id in new_databases:
-            print("Waiting for %r to move to new SG" % replica_id)
+            print('Waiting for %r to move to new SG' % replica_id)
             waiter.wait(DBInstanceIdentifier=replica_id)
 
-        print("All database snapshots up")
+        print('All database snapshots up')
         databases.extend(new_databases)
 
     elif len(databases) > num_instances:
         # need to stop some databases
         num = len(databases) - num_instances
-        print("Stopping %d databases" % num)
+        print('Stopping %d databases' % num)
         to_stop = sorted(databases)[-num:]
         for replica_id in to_stop:
             rds.delete_db_instance(
@@ -168,9 +169,9 @@ def ensure_dbs(run_id, num_instances):
             )
         waiter = rds.get_waiter('db_instance_deleted')
         for replica_id in to_stop:
-            print("Waiting for %r to stop" % replica_id)
+            print('Waiting for %r to stop' % replica_id)
             waiter.wait(DBInstanceIdentifier=replica_id)
-        print("Deleted %d databases" % num)
+        print('Deleted %d databases' % num)
         databases = sorted(databases)[:-num]
 
     assert len(databases) == num_instances

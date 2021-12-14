@@ -1,13 +1,14 @@
-import boto3
-import tempfile
-import shutil
+import json
 import os.path
-import yaml
+import shutil
+import tempfile
+from collections import namedtuple
 from subprocess import Popen
+
+import boto3
+import yaml
 from batch_setup import find_policy
 from botocore.exceptions import ClientError
-import json
-from collections import namedtuple
 
 
 def db_lookup(databases):
@@ -25,15 +26,15 @@ def db_lookup(databases):
         assert db['Endpoint']['Port'] == 5432
         db_hosts.append(db['Endpoint']['Address'])
         if db_name and db_name != db['DBName']:
-            raise RuntimeError("Different database names (%r & %r) found, but "
-                               "all databases must have the same name to be "
-                               "used as replicas for tilequeue/batch."
+            raise RuntimeError('Different database names (%r & %r) found, but '
+                               'all databases must have the same name to be '
+                               'used as replicas for tilequeue/batch.'
                                % (db_name, db['DBName']))
         db_name = db['DBName']
         if db_user and db_user != db['MasterUsername']:
-            raise RuntimeError("Different user names (%r & %r) found, but all "
-                               "databases must have the same username to be "
-                               "used as replicas for tilequeue/batch."
+            raise RuntimeError('Different user names (%r & %r) found, but all '
+                               'databases must have the same username to be '
+                               'used as replicas for tilequeue/batch.'
                                % (db_user, db['MasterUsername']))
         db_user = db['MasterUsername']
 
@@ -82,7 +83,7 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
         env = {}
 
     else:
-        raise RuntimeError("Unknown image name %r while building environment."
+        raise RuntimeError('Unknown image name %r while building environment.'
                            % (name))
 
     # serialise the values in key-value dicts as JSON strings. this is because
@@ -107,21 +108,21 @@ def env_for_image(name, db_hosts, db_name, db_user, db_password, buckets,
 
 def cmd_for_image(name, region):
     if name == 'rawr-batch':
-        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',  # noqa: E501
                'tilequeue', 'rawr-tile',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
                '--run_id', 'Ref::run_id']
 
     elif name == 'meta-batch':
-        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',  # noqa: E501
                'tilequeue', 'meta-tile',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
                '--run_id', 'Ref::run_id']
 
     elif name == 'meta-low-zoom-batch':
-        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',
+        cmd = ['/usr/bin/time', '-f', '"{\\"max_resident_kb\\": %M, \\"cpu_percent\\": \\"%P\\", \\"wall_time_seconds\\": %e}\\"',  # noqa: E501
                'tilequeue', 'meta-tile-low-zoom',
                '--config', '/etc/tilequeue/config.yaml',
                '--tile', 'Ref::tile',
@@ -147,7 +148,7 @@ def cmd_for_image(name, region):
         ]
 
     else:
-        raise RuntimeError("Unknown image name %r while building command."
+        raise RuntimeError('Unknown image name %r while building command.'
                            % (name))
     return cmd
 
@@ -164,11 +165,11 @@ def s3_policy(bucket_or_buckets, date_prefix, allow_write=False):
     for bucket in buckets:
         object_resources.extend([
             # allow access to objects under the date prefix
-            "arn:aws:s3:::%s/%s/*" % (bucket, date_prefix),
+            'arn:aws:s3:::%s/%s/*' % (bucket, date_prefix),
             # and also objects under a hash + date prefix
-            "arn:aws:s3:::%s/*/%s/*" % (bucket, date_prefix),
+            'arn:aws:s3:::%s/*/%s/*' % (bucket, date_prefix),
         ])
-        bucket_resources.append("arn:aws:s3:::%s" % (bucket))
+        bucket_resources.append('arn:aws:s3:::%s' % (bucket))
 
     actions = ['s3:GetObject', 's3:GetObjectTagging']
     if allow_write:
@@ -179,19 +180,19 @@ def s3_policy(bucket_or_buckets, date_prefix, allow_write=False):
         ])
 
     policy = {
-        "Version": "2012-10-17",
-        "Statement": [
+        'Version': '2012-10-17',
+        'Statement': [
             {
-                "Sid": "ObjectOps",
-                "Effect": "Allow",
-                "Action": actions,
-                "Resource": object_resources,
+                'Sid': 'ObjectOps',
+                'Effect': 'Allow',
+                'Action': actions,
+                'Resource': object_resources,
             },
             {
-                "Sid": "BucketOps",
-                "Effect": "Allow",
-                "Action": "s3:ListBucket",
-                "Resource": bucket_resources,
+                'Sid': 'BucketOps',
+                'Effect': 'Allow',
+                'Action': 's3:ListBucket',
+                'Resource': bucket_resources,
             }
         ]
     }
@@ -211,8 +212,8 @@ def find_or_create_s3_policy(iam, bucket_name, bucket_or_buckets, date_prefix,
     Returns the policy's ARN.
     """
 
-    access_descriptor = "Write" if allow_write else "Read"
-    policy_name = "Allow%sAccessTo%sBucket%s" \
+    access_descriptor = 'Write' if allow_write else 'Read'
+    policy_name = 'Allow%sAccessTo%sBucket%s' \
                   % (access_descriptor, bucket_name, date_prefix)
     policy = find_policy(iam, policy_name)
 
@@ -229,12 +230,12 @@ def find_or_create_s3_policy(iam, bucket_name, bucket_or_buckets, date_prefix,
 
 
 def kebab_to_camel(name):
-    return "".join(map(lambda s: s.capitalize(), name.split('-')))
+    return ''.join(map(lambda s: s.capitalize(), name.split('-')))
 
 
 def ensure_job_role_arn(iam, run_id, name, buckets, date_prefixes):
     role_name = kebab_to_camel(
-        "batch-%s-%s" % (name, run_id))
+        'batch-%s-%s' % (name, run_id))
 
     arn = None
     try:
@@ -254,12 +255,12 @@ def ensure_job_role_arn(iam, run_id, name, buckets, date_prefixes):
 # NOTE: i don't really understand what this is for, but copied it from the
 # open-terrain environment, so hopefully it works.
 ASSUME_ROLE_POLICY = dict(
-    Version="2012-10-17",
+    Version='2012-10-17',
     Statement=[
         dict(
-            Effect="Allow",
-            Principal=dict(Service="ecs-tasks.amazonaws.com"),
-            Action="sts:AssumeRole",
+            Effect='Allow',
+            Principal=dict(Service='ecs-tasks.amazonaws.com'),
+            Action='sts:AssumeRole',
         ),
     ]
 )
@@ -273,7 +274,6 @@ Buckets = namedtuple('Buckets', 'rawr meta missing')
 
 
 def create_role(iam, image_name, role_name, buckets, date_prefixes):
-
     """
     Create a role with the given role_name for the image in the run's
     environment.
@@ -326,7 +326,7 @@ def create_role(iam, image_name, role_name, buckets, date_prefixes):
         rp.allow_s3_read('RAWR', buckets.rawr, date_prefixes.rawr)
 
     else:
-        raise RuntimeError("Unknown image name %r while building job role."
+        raise RuntimeError('Unknown image name %r while building job role.'
                            % (image_name))
 
     return role['Role']['Arn']
@@ -349,7 +349,7 @@ def make_job_definitions(
         retry_value = retry_attempts[name] \
             if isinstance(retry_attempts, dict) else retry_attempts
 
-        job_name = "%s-%s" % (name, run_id)
+        job_name = '%s-%s' % (name, run_id)
         definition = {
             'name': job_name,
             'job-role-arn': job_role_arn,
@@ -407,8 +407,8 @@ def run_go(cmd, *args, **kwargs):
 
     exe = find_command(cmd)
     if exe is None:
-        raise RuntimeError("Unable to find executable %r. Did you build "
-                           "the Go tileops tools?" % (exe))
+        raise RuntimeError('Unable to find executable %r. Did you build '
+                           'the Go tileops tools?' % (exe))
 
     # have to construct an environment which will allow the Go-based
     # command to access the AWS session that this program is using. this
@@ -433,7 +433,7 @@ def run_go(cmd, *args, **kwargs):
         proc = Popen(proc_args, env=env, stdout=stdout)
         proc.wait()
         if proc.returncode != 0:
-            raise RuntimeError("Command %r failed with return code %d."
+            raise RuntimeError('Command %r failed with return code %d.'
                                % (proc_args, proc.returncode))
     finally:
         if stdout is not None:
@@ -445,7 +445,6 @@ def create_job_definitions(run_id, region, repo_urls, databases, buckets,
                            retry_attempts=5, date_prefix=None,
                            meta_date_prefix=None, check_metatile_exists=False,
                            job_env_overrides={}):
-
     """
     Set up job definitions for all of the repos in repo_urls.
 
@@ -487,7 +486,7 @@ def create_job_definitions(run_id, region, repo_urls, databases, buckets,
 
     tmpdir = tempfile.mkdtemp()
     try:
-        yaml_file = os.path.join(tmpdir, "config.yaml")
+        yaml_file = os.path.join(tmpdir, 'config.yaml')
         with open(yaml_file, 'w') as fh:
             fh.write(yaml.safe_dump(job_definitions))
 
@@ -520,10 +519,10 @@ def terminate_all_jobs(job_queue, reason):
                 nextToken=next_token,
             )
         if status in ('SUBMITTED', 'PENDING', 'RUNNABLE'):
-            print("Cancelling %d %r jobs" % (len(job_ids), status))
+            print('Cancelling %d %r jobs' % (len(job_ids), status))
             for job_id in job_ids:
                 batch.cancel_job(jobId=job_id, reason=reason)
         else:
-            print("Terminating %d %r jobs" % (len(job_ids), status))
+            print('Terminating %d %r jobs' % (len(job_ids), status))
             for job_id in job_ids:
                 batch.terminate_job(jobId=job_id, reason=reason)

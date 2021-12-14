@@ -1,5 +1,6 @@
-import boto3
 import argparse
+
+import boto3
 
 
 parser = argparse.ArgumentParser(description="""
@@ -33,7 +34,7 @@ while True:
         name = job['jobName']
         if name.startswith(prefix):
             coord_str = name[len(prefix):].replace('-', '/')
-            print("%s\t%d" % (coord_str, duration))
+            print('%s\t%d' % (coord_str, duration))
 
     next_token = response.get('nextToken')
     if not next_token:

@@ -1,6 +1,7 @@
-import boto3
-import time
 import argparse
+import time
+
+import boto3
 
 
 parser = argparse.ArgumentParser(

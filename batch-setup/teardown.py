@@ -1,14 +1,14 @@
-from rds import ensure_dbs
-from make_rawr_tiles import wait_for_jobs_to_finish
-from batch import terminate_all_jobs
 import boto3
+from batch import terminate_all_jobs
+from make_rawr_tiles import wait_for_jobs_to_finish
+from rds import ensure_dbs
 
 
 def delete_all_job_definitions(batch, run_id):
     job_definitions = []
     suffix = '-' + run_id
 
-    print("Listing job definitions to delete.")
+    print('Listing job definitions to delete.')
     next_token = None
     response = batch.describe_job_definitions()
     while True:
@@ -23,7 +23,7 @@ def delete_all_job_definitions(batch, run_id):
         response = batch.describe_job_definitions(nextToken=next_token)
 
     for def_name in job_definitions:
-        print("Deleting job definition %r" % (def_name,))
+        print('Deleting job definition %r' % (def_name,))
         batch.deregister_job_definition(jobDefinition=def_name)
 
 
@@ -41,10 +41,10 @@ def delete_job_queue(batch, job_queue, terminate):
     wait_for_jobs_to_finish(job_queue)
 
     # disable the job queue
-    print("Disabling job queue %r" % (job_queue,))
+    print('Disabling job queue %r' % (job_queue,))
     batch.update_job_queue(jobQueue=job_queue, state='DISABLED')
 
-    print("Waiting for job queue to disable.")
+    print('Waiting for job queue to disable.')
     while True:
         response = batch.describe_job_queues(jobQueues=[job_queue])
         assert len(response['jobQueues']) == 1
@@ -52,7 +52,7 @@ def delete_job_queue(batch, job_queue, terminate):
         state = q['state']
         status = q['status']
         if status == 'UPDATING':
-            print("Queue %r is updating, waiting..." % (job_queue,))
+            print('Queue %r is updating, waiting...' % (job_queue,))
 
         elif state == 'DISABLED':
             break
@@ -65,12 +65,12 @@ def delete_job_queue(batch, job_queue, terminate):
         sleep(15)
 
     # delete the job queue
-    print("Deleting job queue %r" % (job_queue,))
+    print('Deleting job queue %r' % (job_queue,))
     batch.delete_job_queue(jobQueue=job_queue)
 
     # wait for queue to be deleted, otherwise it causes issues when we try to
     # delete the compute environment, which is still referred to by the queue.
-    print("Waiting for job queue to be deleted...")
+    print('Waiting for job queue to be deleted...')
     while True:
         response = batch.describe_job_queues(jobQueues=[job_queue])
         if len(response['jobQueues']) == 0:
@@ -79,7 +79,7 @@ def delete_job_queue(batch, job_queue, terminate):
         # wait a little bit...
         sleep(15)
 
-    print("Deleted job queue.")
+    print('Deleted job queue.')
 
 
 def terminate_instances_by_tag(tags):
@@ -98,7 +98,7 @@ def terminate_instances_by_tag(tags):
         for instance in reservation['Instances']:
             instance_id = instance['InstanceId']
             if instance['State']['Name'] == 'running':
-                print("Terminating instance %r" % (instance_id,))
+                print('Terminating instance %r' % (instance_id,))
                 ec2.terminate_instances(InstanceIds=[instance_id])
 
 
@@ -115,20 +115,20 @@ def delete_role(name):
     for instance_profile in response['InstanceProfiles']:
         ipname = instance_profile['InstanceProfileName']
         for role in instance_profile['Roles']:
-            print("Removing role %r from instance profile %r" %
+            print('Removing role %r from instance profile %r' %
                   (role['RoleName'], ipname))
             iam.remove_role_from_instance_profile(
                 InstanceProfileName=ipname,
                 RoleName=role['RoleName'],
             )
-        print("Deleting instance profile %r" % (ipname,))
+        print('Deleting instance profile %r' % (ipname,))
         iam.delete_instance_profile(InstanceProfileName=ipname)
 
     # next, detach all policies
     paginator = iam.get_paginator('list_attached_role_policies')
     for page in paginator.paginate(RoleName=name):
         for policy in page['AttachedPolicies']:
-            print("Detaching role policy %r" % (policy['PolicyName'],))
+            print('Detaching role policy %r' % (policy['PolicyName'],))
             iam.detach_role_policy(
                 RoleName=name,
                 PolicyArn=policy['PolicyArn'],
@@ -138,7 +138,7 @@ def delete_role(name):
     paginator = iam.get_paginator('list_role_policies')
     for page in paginator.paginate(RoleName=name):
         for policy_name in page['PolicyNames']:
-            print("Deleting inline policy %r from role %r" %
+            print('Deleting inline policy %r from role %r' %
                   (policy_name, name))
             iam.delete_role_policy(
                 RoleName=name,
@@ -146,7 +146,7 @@ def delete_role(name):
             )
 
     # finally, delete the role
-    print("Deleting role %r" % (name,))
+    print('Deleting role %r' % (name,))
     iam.delete_role(RoleName=name)
 
 
@@ -157,17 +157,17 @@ def delete_policy(name):
     policy = find_policy(iam, name)
 
     if policy:
-        print("Deleting policy %r (arn=%r)" % (name, policy['Arn']))
+        print('Deleting policy %r (arn=%r)' % (name, policy['Arn']))
         iam.delete_policy(PolicyArn=policy['Arn'])
 
 
 def delete_compute_env(batch, compute_env):
     # disable the compute environment
-    print("Disabling compute environment %r" % (compute_env,))
+    print('Disabling compute environment %r' % (compute_env,))
     batch.update_compute_environment(
         computeEnvironment=compute_env, state='DISABLED')
 
-    print("Waiting for compute environment to disable.")
+    print('Waiting for compute environment to disable.')
     while True:
         response = batch.describe_compute_environments(
             computeEnvironments=[compute_env])
@@ -176,7 +176,7 @@ def delete_compute_env(batch, compute_env):
         state = env['state']
         status = env['status']
         if status == 'UPDATING':
-            print("Environment %r is updating, waiting..." % (compute_env,))
+            print('Environment %r is updating, waiting...' % (compute_env,))
 
         elif state == 'DISABLED':
             break
@@ -189,7 +189,7 @@ def delete_compute_env(batch, compute_env):
         sleep(15)
 
     # delete the compute environment
-    print("Deleting compute environment %r" % (compute_env,))
+    print('Deleting compute environment %r' % (compute_env,))
     batch.delete_compute_environment(computeEnvironment=compute_env)
 
 
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     from time import sleep
     from run_id import assert_run_id_format
 
-    parser = argparse.ArgumentParser("Tear down a stack")
+    parser = argparse.ArgumentParser('Tear down a stack')
     parser.add_argument('run_id', help='Unique run identifier.')
     parser.add_argument('--terminate', action='store_true', help='Terminate '
                         'jobs, rather than waiting for them to finish.')
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     if region is None:
         import sys
-        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
+        print('ERROR: Need environment variable AWS_DEFAULT_REGION to be set.')
         sys.exit(1)
 
     batch = boto3.client('batch')
@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # delete the job definitions - TODO: doesn't look like these _can_ be
     # deleted, only disabled, and just clutters up the output.
-    #delete_all_job_definitions(batch, run_id)
+    # delete_all_job_definitions(batch, run_id)
 
     # delete the compute environment
     response = batch.describe_compute_environments(

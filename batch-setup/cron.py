@@ -1,7 +1,8 @@
 import json
+from collections import namedtuple
+
 import boto3
 from botocore.exceptions import ClientError
-from collections import namedtuple
 from run_id import assert_run_id_format
 
 
@@ -88,7 +89,7 @@ def create_tps_profile(iam, profile_name, locations):
             'AmazonRDSFullAccess',
             'AmazonEC2ContainerRegistryFullAccess',
             'AWSBatchFullAccess',
-            ):
+    ):
         arn = 'arn:aws:iam::aws:policy/' + policy
         iam.attach_role_policy(
             RoleName=profile_name,
@@ -200,7 +201,7 @@ def create_tps_profile(iam, profile_name, locations):
             ('AllowIAM', iam_policy),
             ('AllowS3', s3_policy),
             ('WriteLogs', cw_policy),
-            ]:
+    ]:
         iam.put_role_policy(
             RoleName=profile_name,
             PolicyName=name,
@@ -275,23 +276,23 @@ def create_tile_assets_profile(iam, profile_name, locations):
 
     assets_path = locations.assets.name + '/' + locations.assets.prefix + '/*'
     policy = {
-        "Version": "2012-10-17",
-        "Statement": [
+        'Version': '2012-10-17',
+        'Statement': [
             {
-                "Sid": "VisualEditor0",
-                "Effect": "Allow",
-                "Action": [
-                    "s3:PutObject",
-                    "s3:GetObject",
-                    "s3:DeleteObject"
+                'Sid': 'VisualEditor0',
+                'Effect': 'Allow',
+                'Action': [
+                    's3:PutObject',
+                    's3:GetObject',
+                    's3:DeleteObject'
                 ],
-                "Resource": 'arn:aws:s3:::' + assets_path,
+                'Resource': 'arn:aws:s3:::' + assets_path,
             },
             {
-                "Sid": "VisualEditor1",
-                "Effect": "Allow",
-                "Action": "s3:ListBucket",
-                "Resource": 'arn:aws:s3:::' + locations.assets.name,
+                'Sid': 'VisualEditor1',
+                'Effect': 'Allow',
+                'Action': 's3:ListBucket',
+                'Resource': 'arn:aws:s3:::' + locations.assets.name,
             }
         ]
     }
@@ -444,7 +445,6 @@ def is_power_of_two(x):
 
 
 if __name__ == '__main__':
-    from datetime import datetime
     import argparse
     import os
     from base64 import b64encode
@@ -542,12 +542,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     assert_run_id_format(args.run_id)
 
-    planet_md5_url = args.planet_md5_url or args.planet_url + ".md5"
+    planet_md5_url = args.planet_md5_url or args.planet_url + '.md5'
 
     region = args.region or os.environ.get('AWS_DEFAULT_REGION')
     if region is None:
         import sys
-        print("ERROR: Need environment variable AWS_DEFAULT_REGION to be set.")
+        print('ERROR: Need environment variable AWS_DEFAULT_REGION to be set.')
         sys.exit(1)
 
     # checking that metatile size has a valid value, and it's in a sensible
@@ -630,7 +630,7 @@ if __name__ == '__main__':
         tileops_version=args.tileops_version,
         metatile_size=args.metatile_size,
         meta_date_prefix=meta_date_prefix,
-        job_env_overrides=" ".join(args.job_env_overrides),
+        job_env_overrides=' '.join(args.job_env_overrides),
         num_db_replicas=args.num_db_replicas,
         max_vcpus=args.max_vcpus,
         run_post_import_steps=args.run_post_import_steps,
@@ -662,7 +662,7 @@ if __name__ == '__main__':
             Tags=[
                 dict(Key='tps-instance', Value=args.run_id),
                 dict(Key='Name', Value='Tileops Runner'),
-                dict(Key='cost_sub_feature', Value="Tile Build"),
+                dict(Key='cost_sub_feature', Value='Tile Build'),
                 dict(Key='cost_resource_group', Value=args.run_id),
             ],
         )],

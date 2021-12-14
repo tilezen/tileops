@@ -1,9 +1,10 @@
-import boto3
 import os
-from io import BytesIO
-from paramiko.rsakey import RSAKey
-from botocore.exceptions import ClientError
 from contextlib import contextmanager
+from io import BytesIO
+
+import boto3
+from botocore.exceptions import ClientError
+from paramiko.rsakey import RSAKey
 
 
 def flat_nodes_key(run_id):
@@ -62,7 +63,7 @@ def reset_database(instance, db):
 
 
 def login_key(run_id):
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = 'import-private-key-%s.pem' % (run_id,)
 
     if not os.path.exists(filename):
         return None
@@ -82,7 +83,7 @@ def create_login_key(ec2, run_id, key_pair_name):
     pem = response['KeyMaterial']
     key = RSAKey.from_private_key(BytesIO(pem))
 
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = 'import-private-key-%s.pem' % (run_id,)
     with open(filename, 'w') as fh:
         key.write_private_key(fh)
 
@@ -247,7 +248,7 @@ def start_osm2pgsql_instance(
                 Tags=[
                     dict(Key='osm2pgsql-import', Value=run_id),
                     dict(Key='Name', Value='osm2pgsql Runner'),
-                    dict(Key='cost_sub_feature', Value="Tile Build"),
+                    dict(Key='cost_sub_feature', Value='Tile Build'),
                     dict(Key='cost_resource_group', Value=run_id),
                 ],
             ),
@@ -311,7 +312,7 @@ class Instance(object):
                 yield ssh
 
         except Exception as e:
-            raise RuntimeError("ERROR: %s (on ubuntu@%s)" % (e, ip))
+            raise RuntimeError('ERROR: %s (on ubuntu@%s)' % (e, ip))
 
         finally:
             ssh.close()
@@ -323,8 +324,8 @@ class Instance(object):
 
         with self._ssh(script_file, kwargs) as ssh:
             stdin, stdout, stderr = ssh.exec_command(
-                "/bin/bash %s </dev/null >/dev/null 2>&1 "
-                "&& echo PASS || echo FAIL" % script_file)
+                '/bin/bash %s </dev/null >/dev/null 2>&1 '
+                '&& echo PASS || echo FAIL' % script_file)
 
             # we don't provide any input
             stdin.close()
@@ -341,8 +342,8 @@ class Instance(object):
             elif status == 'FAIL':
                 return False
             else:
-                raise ValueError("Running remote script %r, expecting "
-                                 "either pass or fail response but got %r."
+                raise ValueError('Running remote script %r, expecting '
+                                 'either pass or fail response but got %r.'
                                  % (script_file, status))
 
     def repeatedly(self, script_file, **kwargs):
@@ -379,7 +380,7 @@ class Instance(object):
                 stdout.read()
                 stderr.read()
 
-                time_now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+                time_now = time.strftime('%Y-%m-%dT%H:%M:%S%z')
                 # TODO: less hackish way of doing this?
                 # check the status by copying back the status file.
                 try:
@@ -389,16 +390,16 @@ class Instance(object):
                     stderr.read()
                     status = stdout.read().rstrip().decode('utf8')
 
-                    print("[%s] Import status: %r" % (time_now, status))
-                    if status == "finished":
+                    print('[%s] Import status: %r' % (time_now, status))
+                    if status == 'finished':
                         break
-                    elif status == "failed":
+                    elif status == 'failed':
                         raise RuntimeError(
-                            "Something went wrong with the import!")
+                            'Something went wrong with the import!')
 
                 except OSError as e:
                     if e.errno == errno.ENOENT:
-                        print("[%s] Script still starting up..." % time_now)
+                        print('[%s] Script still starting up...' % time_now)
                     else:
                         raise
 
@@ -410,13 +411,13 @@ def shutdown_and_cleanup(ec2, import_instance_id, run_id, ip_addr):
     import os
 
     # shut down the instance and delete the key-pair
-    print("Terminating instance (id=%r)." % import_instance_id)
+    print('Terminating instance (id=%r).' % import_instance_id)
     ec2.terminate_instances(InstanceIds=[import_instance_id])
     waiter = ec2.get_waiter('instance_terminated')
     waiter.wait(InstanceIds=[import_instance_id])
-    print("Instance terminated.")
+    print('Instance terminated.')
 
-    filename = "import-private-key-%s.pem" % (run_id,)
+    filename = 'import-private-key-%s.pem' % (run_id,)
     os.remove(filename)
     key_pair_name = 'osm2pgsql-import-' + run_id
     ec2.delete_key_pair(KeyName=key_pair_name)
@@ -449,11 +450,11 @@ def ensure_import(
         if not key:
             raise RuntimeError(
                 "Import instance is running, but we don't have the key to "
-                "log in. Terminate the instance and re-run if you want to "
-                "start again from scratch.")
+                'log in. Terminate the instance and re-run if you want to '
+                'start again from scratch.')
 
         # instance running!
-        print("Using running instance (id=%r)." % import_instance_id)
+        print('Using running instance (id=%r).' % import_instance_id)
         instance = Instance(ec2, import_instance_id, key)
 
     # keep a flag to tell if we have finished or not. this will be set if,
@@ -463,7 +464,7 @@ def ensure_import(
     finished = False
 
     if not import_instance_id:
-        print("No instance running - starting one.")
+        print('No instance running - starting one.')
 
         # no import instance running - either it was never started, or we just
         # stopped it and cleaned up. so we'll need to start one!
@@ -477,7 +478,7 @@ def ensure_import(
             iam_instance_profile, ip_addr)
 
         # instance started!
-        print("Instance started (id=%r)." % import_instance_id)
+        print('Instance started (id=%r).' % import_instance_id)
         instance = Instance(ec2, import_instance_id, key)
 
         # before running the script, check if everything is already finished.
