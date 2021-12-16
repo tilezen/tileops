@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"github.com/tilezen/tileops.git/go/pkg/coord"
 	"testing"
 )
@@ -52,8 +53,6 @@ func TestParseCoordFromKey(t *testing.T) {
 }
 
 func TestMd5Hash(t *testing.T) {
-	hashed := HashString("10/941/1011.zip")
-	if hashed != "00018" {
-		t.Fail()
-	}
+	hashed := HashString("13/4093/2724.zip")
+	fmt.Println(hashed)
 }

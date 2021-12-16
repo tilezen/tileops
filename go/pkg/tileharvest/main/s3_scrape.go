@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	thisRunId      = "20210921"
+	thisRunId      = "20211206-full"
 	prefixLength   = 5
 	chanSizePeriod = 1 * time.Minute
 	reportPeriod   = 1 * time.Minute
 	dumpPeriod     = 1 * time.Minute
-	zoomMax        = 10
+	zoomMax        = 13
 	regionName     = "us-east-1"
 	bucketName     = "sc-snapzen-meta-tiles-" + regionName
 	numWorkers = 128
@@ -40,7 +40,7 @@ var (
 	numPrefixes          = int(math.Pow(16, prefixLength))
 	missingFilename = fmt.Sprintf("%s-%s-missing.txt", thisRunId, bucketName)
 
-	deleteOld = true
+	deleteOld = false
 	// nothing will be deleted if above is false
 	oldIfBefore = time.Date(2021, time.September, 2, 0, 0, 0,0, time.Local)
 )
