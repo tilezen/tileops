@@ -1,24 +1,26 @@
 #!/bin/bash
 
-PLANET_URL='%(planet_url)s'
-PLANET_MD5_URL='%(planet_md5_url)s'
-PLANET_FILE='%(planet_file)s'
-PGPASSWORD='%(db_pass)s'
-export PGHOST='%(db_host)s'
-export PGPORT='%(db_port)d'
-export PGDATABASE='%(db_name)s'
-export PGUSER='%(db_user)s'
-FLAT_NODES_BUCKET='%(flat_nodes_bucket)s'
-FLAT_NODES_KEY='%(flat_nodes_key)s'
-export AWS_DEFAULT_REGION='%(aws_region)s'
-export OSM2PGSQL='/usr/bin/osm2pgsql'
-VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
+echo "Starting import_planet.sh"
 
 # we don't want the STATUS file moving around while we change working directories, especially if
 # we have to report a failure.
 SCRIPTPATH="$( cd "$(dirname "$0")"; pwd -P )"
 STATUS="${SCRIPTPATH}/${0}.status"
 PIDFILE="${SCRIPTPATH}/${0}.pid"
+
+echo "Verifying it's not already running or in a terminal state"
+# check if there's an already-running import
+if [[ -f "${PIDFILE}" ]]; then
+    pid=`cat "${PIDFILE}"`
+    if kill -0 "$pid"; then
+	    echo "Import is running."
+	    cat $STATUS
+	    exit 0
+    else
+	    # import terminated, but file remains
+	    rm "${PIDFILE}"
+    fi
+fi
 
 # check if we already finished
 if [[ `cat $STATUS` == "finished" ]]; then
@@ -32,18 +34,21 @@ if [[ `cat $STATUS` == "failed" ]]; then
     exit 1
 fi
 
-# check if there's an already-running import
-if [[ -f "${PIDFILE}" ]]; then
-    pid=`cat "${PIDFILE}"`
-    if kill -0 "$pid"; then
-	echo "Import is running."
-	cat $STATUS
-	exit 0
-    else
-	# import terminated, but file remains
-	rm "${PIDFILE}"
-    fi
-fi
+echo "Import needs to run.  Starting!"
+
+PLANET_URL='%(planet_url)s'
+PLANET_MD5_URL='%(planet_md5_url)s'
+PLANET_FILE='%(planet_file)s'
+PGPASSWORD='%(db_pass)s'
+export PGHOST='%(db_host)s'
+export PGPORT='%(db_port)d'
+export PGDATABASE='%(db_name)s'
+export PGUSER='%(db_user)s'
+FLAT_NODES_BUCKET='%(flat_nodes_bucket)s'
+FLAT_NODES_KEY='%(flat_nodes_key)s'
+export AWS_DEFAULT_REGION='%(aws_region)s'
+export OSM2PGSQL='/usr/bin/osm2pgsql'
+VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 
 # set up lockfile
 echo $$ > "${PIDFILE}"
