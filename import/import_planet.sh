@@ -75,6 +75,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-
 if [[ ! -f "${OSM2PGSQL}" ]]; then
   git clone git://github.com/openstreetmap/osm2pgsql.git
   cd osm2pgsql
+  git checkout tags/1.5.1
   sudo DEBIAN_FRONTEND=noninteractive sudo apt install -y -q make cmake g++ libboost-dev libboost-system-dev \
                                         libboost-filesystem-dev libexpat1-dev zlib1g-dev \
                                         libbz2-dev libpq-dev libproj-dev lua5.3 liblua5.3-dev pandoc
