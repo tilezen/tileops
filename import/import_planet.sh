@@ -11,7 +11,7 @@ export PGUSER='%(db_user)s'
 FLAT_NODES_BUCKET='%(flat_nodes_bucket)s'
 FLAT_NODES_KEY='%(flat_nodes_key)s'
 export AWS_DEFAULT_REGION='%(aws_region)s'
-export OSM2PGSQL='/usr/bin/osm2pgsql'
+export OSM2PGSQL='/usr/local/bin/osm2pgsql'
 VECTOR_DATASOURCE_VERSION='%(vector_datasource_version)s'
 
 # we don't want the STATUS file moving around while we change working directories, especially if
@@ -70,6 +70,20 @@ echo "installing software" > $STATUS
 sudo DEBIAN_FRONTEND=noninteractive apt update
 sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -q
 sudo DEBIAN_FRONTEND=noninteractive apt install -y -q make g++ git awscli build-essential autoconf libtool pkg-config python-dev python3-pip python3-virtualenv python-pil libxml2-dev libxslt-dev unzip postgis osm2pgsql
+
+# make osm2pgsql from source
+if [[ ! -f "osm2pgsql/build" ]]; then
+  git clone git://github.com/openstreetmap/osm2pgsql.git
+  cd osm2pgsql
+  sudo DEBIAN_FRONTEND=noninteractive sudo apt install -y -q make cmake g++ libboost-dev libboost-system-dev \
+                                        libboost-filesystem-dev libexpat1-dev zlib1g-dev \
+                                        libbz2-dev libpq-dev libproj-dev lua5.3 liblua5.3-dev pandoc
+  mkdir build && cd build
+  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF
+  make
+  sudo make install
+  cd ../..
+fi
 
 # if there's no planet, then download it
 if [[ ! -f "planet/${PLANET_FILE}" ]]; then
