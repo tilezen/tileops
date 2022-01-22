@@ -127,7 +127,7 @@ ntuples=`psql -t -c "select sum(n_live_tup) from pg_stat_user_tables where relna
 if [[ $ntuples -eq 0 ]]; then
     # no existing data => run osm2pgsql!
     echo "running osm2pgsql" > $STATUS
-    (cd vector-datasource && $OSM2PGSQL --slim --hstore-all -C 61440 -S osm2pgsql.style -d "$PGDATABASE" -U "$PGUSER" -H "$PGHOST" --flat-nodes ../flat.nodes --number-processes 16 "../planet/${PLANET_FILE}")
+    (cd vector-datasource && $OSM2PGSQL --slim --hstore-all -C 61440 -S osm2pgsql.lua -O flex -d "$PGDATABASE" -U "$PGUSER" -H "$PGHOST" --flat-nodes ../flat.nodes --number-processes 16 "../planet/${PLANET_FILE}")
 fi
 
 # if flat nodes file already exists in S3, don't upload it again
