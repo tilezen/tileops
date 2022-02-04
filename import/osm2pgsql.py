@@ -503,7 +503,7 @@ def ensure_import(
                 reset_database(instance, db)
 
     if not finished:
-        # run the script on the host.
+        # run the script on the host
         instance.repeatedly(
             'import_planet.sh',
             planet_url=planet_url,
