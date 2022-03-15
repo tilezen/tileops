@@ -4,10 +4,10 @@ import sys
 import tempfile
 from collections import namedtuple
 from contextlib import contextmanager
-from distutils.util import strtobool
 
 import boto3
 import yaml
+from distutils.util import strtobool
 from ModestMaps.Core import Coordinate
 from tilequeue.command import make_config_from_argparse
 from tilequeue.command import tilequeue_batch_enqueue

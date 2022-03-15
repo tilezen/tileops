@@ -8,7 +8,6 @@ import tempfile
 import time
 from collections import namedtuple
 from contextlib import contextmanager
-from distutils.util import strtobool
 from multiprocessing import Pool
 from typing import Generator
 from typing import Iterator
@@ -18,6 +17,7 @@ import boto3
 import yaml
 from batch import Buckets
 from batch import run_go
+from distutils.util import strtobool
 from make_rawr_tiles import head_lines
 from make_rawr_tiles import wait_for_jobs_to_finish
 from make_rawr_tiles import wc_line
