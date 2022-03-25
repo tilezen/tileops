@@ -130,6 +130,10 @@ if [[ $ntuples -eq 0 ]]; then
     (cd vector-datasource && $OSM2PGSQL --slim --hstore-all -C 61440 -S osm2pgsql.lua -O flex -d "$PGDATABASE" -U "$PGUSER" -H "$PGHOST" --flat-nodes ../flat.nodes --number-processes 16 "../planet/${PLANET_FILE}")
 fi
 
+# sql script to alter database for things lua cannot accomplish
+echo "running additional postgres database processing"
+(cd vector-datasource && psql -d "$PGDATABASE" -U "$PGUSER" -H "$PGHOST" -f osm_database_processing.sql)
+
 # if flat nodes file already exists in S3, don't upload it again
 if aws s3 ls "s3://${FLAT_NODES_BUCKET}/${FLAT_NODES_KEY}"; then
     echo "Flat nodes file already exists - not uploading."
